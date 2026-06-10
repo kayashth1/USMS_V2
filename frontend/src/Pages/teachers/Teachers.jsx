@@ -11,7 +11,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 import { Plus, Mail, Phone, Pencil, Trash2, Users } from "lucide-react";
 
@@ -20,7 +19,6 @@ const Teachers = () => {
 
   const [teachers, setTeachers] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [tab, setTab] = useState("all");
   const [searchTerm, setSearchTerm] = useState("");
 
   const [editOpen, setEditOpen] = useState(false);
@@ -52,9 +50,7 @@ const Teachers = () => {
 
   useEffect(() => { reloadTeachers(); }, [schoolId]);
 
-  const activeTeachers = teachers.filter((t) => t.isActive !== false);
-
-  const visibleTeachers = (tab === "active" ? activeTeachers : teachers).filter(
+  const visibleTeachers = teachers.filter(
     (t) => t.fullName?.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
@@ -113,14 +109,6 @@ const Teachers = () => {
           />
         </CardContent>
       </Card>
-
-      {/* Tabs */}
-      <Tabs value={tab} onValueChange={(v) => { setTab(v); setSelectedIds(new Set()); }}>
-        <TabsList>
-          <TabsTrigger value="all">All ({teachers.length})</TabsTrigger>
-          <TabsTrigger value="active">Active ({activeTeachers.length})</TabsTrigger>
-        </TabsList>
-      </Tabs>
 
       {/* Teacher Cards */}
       {loading ? (

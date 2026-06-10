@@ -1,8 +1,7 @@
-import Home from "../Pages/Home/Home";
 import Login from "../Pages/auth/LoginPage";
 import Dashboard from "../Pages/dashboard/Dashboard";
 
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 
 import AdminLayout from "@/components/Layout/AdminLayout";
 import SuperAdminLayout from "@/components/Layout/SuperAdminLayout";
@@ -33,7 +32,7 @@ const AppRoutes = () => {
     <BrowserRouter>
       <Routes>
         {/* ================= PUBLIC ================= */}
-        <Route path="/" element={<Home />} />
+        <Route path="/" element={<Navigate to="/login" replace />} />
         <Route path="/login" element={<Login />} />
 
         {/* ================= PROTECTED (SUPERADMIN) ================= */}

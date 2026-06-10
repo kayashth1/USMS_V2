@@ -21,25 +21,31 @@ import {
 
 import { updateStudent } from "@/services/student.service";
 import { getClassesBySchool } from "@/services/class.service";
+import { useCustomFieldDefs } from "@/hooks/useCustomFieldDefs";
+import CustomFieldsForm from "@/components/common/CustomFieldsForm";
 
 const EditStudentDialog = ({ open, onOpenChange, student, onSuccess }) => {
   const schoolId = localStorage.getItem("principalSchoolId");
 
-  const [loading, setLoading] = useState(false);
-  const [classes, setClasses] = useState([]);
-  const [form, setForm] = useState(null);
+  const [loading,      setLoading]      = useState(false);
+  const [classes,      setClasses]      = useState([]);
+  const [form,         setForm]         = useState(null);
+  const [customValues, setCustomValues] = useState({});
+
+  const { defs: customDefs } = useCustomFieldDefs(schoolId, "student");
 
   /* ================= INIT FORM ================= */
   useEffect(() => {
     if (!student) return;
 
     setForm({
-      fullName: student.fullName || "",
-      roll: student.roll || "",
-      classId: student.classId || "", // 🔥 SOURCE OF TRUTH
+      fullName:   student.fullName   || "",
+      roll:       student.roll       || "",
+      classId:    student.classId    || "",
       parentName: student.parentName || "",
-      contact: student.contact || "",
+      contact:    student.contact    || "",
     });
+    setCustomValues(student.customFields || {});
   }, [student]);
 
   /* ================= LOAD CLASSES ================= */
@@ -79,12 +85,17 @@ const EditStudentDialog = ({ open, onOpenChange, student, onSuccess }) => {
 
       setLoading(true);
 
+      const missingRequired = customDefs.filter((f) => f.required && !customValues[f.id]?.toString().trim());
+      if (missingRequired.length > 0)
+        throw new Error(`Required fields missing: ${missingRequired.map((f) => f.label).join(", ")}`);
+
       await updateStudent(student.id, {
-        fullName: form.fullName,
-        roll: form.roll,
-        classId: form.classId,
-        parentName: form.parentName,
-        contact: form.contact,
+        fullName:     form.fullName,
+        roll:         form.roll,
+        classId:      form.classId,
+        parentName:   form.parentName,
+        contact:      form.contact,
+        customFields: customValues,
       });
 
       onOpenChange(false);
@@ -166,6 +177,12 @@ const EditStudentDialog = ({ open, onOpenChange, student, onSuccess }) => {
               onChange={handleChange}
             />
           </div>
+
+          <CustomFieldsForm
+            defs={customDefs}
+            values={customValues}
+            onChange={(fieldId, value) => setCustomValues((p) => ({ ...p, [fieldId]: value }))}
+          />
 
           {/* Email (read-only) */}
           <div className="space-y-1">

@@ -12,22 +12,29 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
 import { updateTeacher } from "@/services/teacher.service";
+import { useCustomFieldDefs } from "@/hooks/useCustomFieldDefs";
+import CustomFieldsForm from "@/components/common/CustomFieldsForm";
 
-const EditTeacherDialog = ({ open, onOpenChange, teacher, onUpdated  }) => {
-  const [loading, setLoading] = useState(false);
-  const [form, setForm] = useState(null);
+const EditTeacherDialog = ({ open, onOpenChange, teacher, onUpdated }) => {
+  const schoolId = teacher?.schoolId || localStorage.getItem("principalSchoolId");
+  const [loading,      setLoading]      = useState(false);
+  const [form,         setForm]         = useState(null);
+  const [customValues, setCustomValues] = useState({});
+
+  const { defs: customDefs } = useCustomFieldDefs(schoolId, "teacher");
 
   /* ================= INIT FORM ================= */
   useEffect(() => {
     if (teacher) {
       setForm({
-        fullName: teacher.fullName || "",
-        email: teacher.email || "",
-        phone: teacher.phone || "",
+        fullName:    teacher.fullName    || "",
+        email:       teacher.email       || "",
+        phone:       teacher.phone       || "",
         joiningDate: teacher.joiningDate || "",
-        address: teacher.address || "",
-        schoolName: teacher.schoolName || "",
+        address:     teacher.address     || "",
+        schoolName:  teacher.schoolName  || "",
       });
+      setCustomValues(teacher.customFields || {});
     }
   }, [teacher]);
 
@@ -46,7 +53,11 @@ const EditTeacherDialog = ({ open, onOpenChange, teacher, onUpdated  }) => {
     try {
       setLoading(true);
 
-      await updateTeacher(teacher.id, form);
+      const missingRequired = customDefs.filter((f) => f.required && !customValues[f.id]?.toString().trim());
+      if (missingRequired.length > 0)
+        throw new Error(`Required fields missing: ${missingRequired.map((f) => f.label).join(", ")}`);
+
+      await updateTeacher(teacher.id, { ...form, customFields: customValues });
 
       onUpdated();           // 🔥 ADD THIS
       onOpenChange(false);
@@ -128,6 +139,12 @@ const EditTeacherDialog = ({ open, onOpenChange, teacher, onUpdated  }) => {
           </div>
 
         </div>
+
+        <CustomFieldsForm
+          defs={customDefs}
+          values={customValues}
+          onChange={(fieldId, value) => setCustomValues((p) => ({ ...p, [fieldId]: value }))}
+        />
 
         {/* ===== FOOTER ===== */}
         <DialogFooter className="mt-6">

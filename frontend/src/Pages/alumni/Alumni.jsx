@@ -7,6 +7,8 @@ import {
 } from "@/components/ui/select";
 
 import { getAlumniBySchool } from "@/services/alumni.service";
+import { useSchoolPlan } from "@/hooks/useSchoolPlan";
+import { Crown } from "lucide-react";
 
 const Alumni = () => {
   const schoolId = localStorage.getItem("principalSchoolId");
@@ -15,6 +17,17 @@ const Alumni = () => {
   const [loading, setLoading]       = useState(true);
   const [searchName, setSearchName] = useState("");
   const [filterYear, setFilterYear] = useState("all");
+
+  const { isFree } = useSchoolPlan();
+
+  // Free tier: show only the current academic year (e.g. "2025-2026")
+  const currentYear = new Date().getFullYear();
+  const visibleAlumni = isFree
+    ? alumni.filter((a) => {
+        const startYear = parseInt((a.academicYear || "").split("-")[0]);
+        return !isNaN(startYear) && startYear >= currentYear - 1;
+      })
+    : alumni;
 
   useEffect(() => {
     if (!schoolId) return;
@@ -25,18 +38,18 @@ const Alumni = () => {
   }, [schoolId]);
 
   const academicYears = useMemo(
-    () => [...new Set(alumni.map((a) => a.academicYear).filter(Boolean))].sort().reverse(),
-    [alumni]
+    () => [...new Set(visibleAlumni.map((a) => a.academicYear).filter(Boolean))].sort().reverse(),
+    [visibleAlumni]
   );
 
   const filtered = useMemo(
     () =>
-      alumni.filter((a) => {
+      visibleAlumni.filter((a) => {
         if (filterYear !== "all" && a.academicYear !== filterYear) return false;
         if (searchName && !a.fullName?.toLowerCase().includes(searchName.toLowerCase())) return false;
         return true;
       }),
-    [alumni, filterYear, searchName]
+    [visibleAlumni, filterYear, searchName]
   );
 
   // Group by academic year for display
@@ -62,12 +75,24 @@ const Alumni = () => {
         <p className="text-gray-500">Graduated students organised by academic year</p>
       </div>
 
+      {/* Free tier notice */}
+      {isFree && (
+        <div className="flex items-start gap-3 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3">
+          <Crown size={16} className="text-amber-500 mt-0.5 shrink-0" />
+          <p className="text-sm text-amber-800">
+            <span className="font-semibold">Free Plan — </span>
+            Showing alumni from the current academic year only.{" "}
+            <span className="text-amber-700">Upgrade to Premium for lifetime alumni access.</span>
+          </p>
+        </div>
+      )}
+
       {/* Stats */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <Card>
           <CardContent className="p-4 space-y-1">
             <p className="text-xs text-gray-500">Total Alumni</p>
-            <p className="text-2xl font-bold text-indigo-600">{alumni.length}</p>
+            <p className="text-2xl font-bold text-indigo-600">{visibleAlumni.length}</p>
           </CardContent>
         </Card>
         <Card>

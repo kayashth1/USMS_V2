@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { getTeachersBySchool } from "@/services/teacher.service";
 import { getClassesBySchool } from "@/services/class.service";
@@ -34,9 +34,18 @@ const TeacherAssignment = () => {
   const [classSubjects, setClassSubjects] = useState([]);
   const [assignments, setAssignments] = useState([]);
 
-  const classMap = Object.fromEntries(
-  classes.map(c => [c.docId, c.id])
-);
+  const teacherMap = useMemo(
+    () => new Map(teachers.map((t) => [t.id, t])),
+    [teachers]
+  );
+  const subjectMap = useMemo(
+    () => new Map(subjects.map((s) => [s.id, s])),
+    [subjects]
+  );
+  const classMap = useMemo(
+    () => new Map(classes.map((c) => [c.docId, c.id])),
+    [classes]
+  );
 
 
   /* ================= LOAD BASE ================= */
@@ -142,8 +151,8 @@ const TeacherAssignment = () => {
         {/* Existing Assignments */}
         <div className="space-y-3">
           {assignments.map((a) => {
-            const teacher = teachers.find(t => t.id === a.teacherId);
-            const subject = subjects.find(s => s.id === a.subjectId);
+            const teacher = teacherMap.get(a.teacherId);
+            const subject = subjectMap.get(a.subjectId);
 
             return (
               <div
@@ -155,7 +164,7 @@ const TeacherAssignment = () => {
                     {teacher?.fullName} — {subject?.name}
                   </p>
                   <p className="text-xs text-gray-500">
-  Section {classMap[a.classId] || "—"}
+  Section {classMap.get(a.classId) || "—"}
                   </p>
                 </div>
 

@@ -28,6 +28,7 @@ import ClassManagement from "@/components/settings/ClassManagement";
 import ClassSubjectManagement from "@/components/settings/ClassSubjectManagement";
 import TeacherAssignment from "@/components/settings/TeacherAssignment";
 import TimePeriodManagement from "@/components/settings/TimePeriodManagement";
+import CustomFieldManagement from "@/components/settings/CustomFieldManagement";
 
 const Settings = () => {
   const schoolId = localStorage.getItem("principalSchoolId");
@@ -91,6 +92,7 @@ const Settings = () => {
           <TabsTrigger value="subjects_classes">Subject & Classes</TabsTrigger>
           <TabsTrigger value="Teacher_Assignment">Teacher Assignment</TabsTrigger>
           <TabsTrigger value="time_periods">Time Periods</TabsTrigger>
+          <TabsTrigger value="custom_fields">Custom Fields</TabsTrigger>
         </TabsList>
 
         {/* ================= SCHOOL PROFILE ================= */}
@@ -186,6 +188,11 @@ const Settings = () => {
         {/* ================= Time Periods ================= */}
         <TabsContent value="time_periods">
           <TimePeriodManagement />
+        </TabsContent>
+
+        {/* ================= Custom Fields ================= */}
+        <TabsContent value="custom_fields">
+          <CustomFieldManagement />
         </TabsContent>
       </Tabs>
     </div>

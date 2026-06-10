@@ -424,6 +424,19 @@ const Fees = () => {
     }));
   }, [allPayments, students]);
 
+  const classBreakdown = useMemo(() =>
+    sortedClasses
+      .map((cls) => {
+        const rows = allPayments.filter((p) => p.classId === cls.docId);
+        if (rows.length === 0) return null;
+        const billed    = rows.reduce((s, p) => s + (p.totalDue   || 0), 0);
+        const collected = rows.reduce((s, p) => s + (p.amountPaid || 0), 0);
+        const rate      = billed > 0 ? Math.round((collected / billed) * 100) : 0;
+        return { cls, billed, collected, due: billed - collected, rate };
+      })
+      .filter(Boolean),
+  [sortedClasses, allPayments]);
+
   const filteredSummary = useMemo(() =>
     studentSummary
       .filter((s) => {
@@ -652,7 +665,11 @@ const Fees = () => {
                             <tr className="border-t bg-indigo-50/30">
                               <td colSpan={6} className="px-10 py-4">
                                 {loadingPays ? (
-                                  <p className="text-sm text-gray-400">Loading...</p>
+                                  <div className="space-y-2 animate-pulse">
+                                    {Array.from({ length: 3 }).map((_, i) => (
+                                      <div key={i} className="h-8 bg-white rounded border" />
+                                    ))}
+                                  </div>
                                 ) : expandedPays.length === 0 ? (
                                   <p className="text-sm text-gray-400">No payment records.</p>
                                 ) : (() => {
@@ -847,29 +864,22 @@ const Fees = () => {
                       </tr>
                     </thead>
                     <tbody className="divide-y">
-                      {sortedClasses.map((cls) => {
-                        const rows = allPayments.filter((p) => p.classId === cls.docId);
-                        if (rows.length === 0) return null;
-                        const billed    = rows.reduce((s, p) => s + (p.totalDue || 0), 0);
-                        const collected = rows.reduce((s, p) => s + (p.amountPaid || 0), 0);
-                        const rate      = billed > 0 ? Math.round((collected / billed) * 100) : 0;
-                        return (
-                          <tr key={cls.docId}>
-                            <td className="px-3 py-2 font-medium">Class {cls.grade}-{cls.section}</td>
-                            <td className="px-3 py-2">₹{billed.toLocaleString()}</td>
-                            <td className="px-3 py-2 text-green-600">₹{collected.toLocaleString()}</td>
-                            <td className="px-3 py-2 text-red-500">₹{(billed - collected).toLocaleString()}</td>
-                            <td className="px-3 py-2">
-                              <div className="flex items-center gap-2">
-                                <div className="w-20 bg-gray-200 rounded-full h-1.5">
-                                  <div className="bg-green-500 h-1.5 rounded-full" style={{ width: `${rate}%` }} />
-                                </div>
-                                <span className="text-xs text-gray-500">{rate}%</span>
+                      {classBreakdown.map(({ cls, billed, collected, due, rate }) => (
+                        <tr key={cls.docId}>
+                          <td className="px-3 py-2 font-medium">Class {cls.grade}-{cls.section}</td>
+                          <td className="px-3 py-2">₹{billed.toLocaleString()}</td>
+                          <td className="px-3 py-2 text-green-600">₹{collected.toLocaleString()}</td>
+                          <td className="px-3 py-2 text-red-500">₹{due.toLocaleString()}</td>
+                          <td className="px-3 py-2">
+                            <div className="flex items-center gap-2">
+                              <div className="w-20 bg-gray-200 rounded-full h-1.5">
+                                <div className="bg-green-500 h-1.5 rounded-full" style={{ width: `${rate}%` }} />
                               </div>
-                            </td>
-                          </tr>
-                        );
-                      })}
+                              <span className="text-xs text-gray-500">{rate}%</span>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
                     </tbody>
                   </table>
                 </CardContent>

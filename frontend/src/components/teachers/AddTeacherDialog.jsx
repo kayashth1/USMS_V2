@@ -12,12 +12,15 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
 import { createTeacher } from "@/services/teacher.service";
+import { useCustomFieldDefs } from "@/hooks/useCustomFieldDefs";
+import CustomFieldsForm from "@/components/common/CustomFieldsForm";
 
 const AddTeacherDialog = ({ open, onOpenChange }) => {
-  const [loading, setLoading] = useState(false);
+  const [loading,      setLoading]      = useState(false);
+  const [customValues, setCustomValues] = useState({});
 
-  // 🔥 Auto-derived from logged-in principal
   const schoolId = localStorage.getItem("principalSchoolId");
+  const { defs: customDefs } = useCustomFieldDefs(schoolId, "teacher");
 
   const initialForm = {
     fullName: "",
@@ -51,22 +54,27 @@ const AddTeacherDialog = ({ open, onOpenChange }) => {
         throw new Error("Full name, email and password are required.");
       }
 
+      const missingRequired = customDefs.filter((f) => f.required && !customValues[f.id]?.toString().trim());
+      if (missingRequired.length > 0)
+        throw new Error(`Required fields missing: ${missingRequired.map((f) => f.label).join(", ")}`);
+
       setLoading(true);
 
       // 🔒 Trim + send only valid data
       await createTeacher({
-        fullName: form.fullName.trim(),
-        employeeId: form.employeeId.trim(),
-        email: form.email.trim(),
-        password: form.password,
-        phone: form.phone.trim(),
-        joiningDate: form.joiningDate,
-        address: form.address.trim(),
-        schoolId, // 🔥 AUTO-ASSIGNED
+        fullName:     form.fullName.trim(),
+        employeeId:   form.employeeId.trim(),
+        email:        form.email.trim(),
+        password:     form.password,
+        phone:        form.phone.trim(),
+        joiningDate:  form.joiningDate,
+        address:      form.address.trim(),
+        schoolId,
+        customFields: customValues,
       });
 
-      // ✅ Reset form + close dialog
       setForm(initialForm);
+      setCustomValues({});
       onOpenChange(false);
     } catch (error) {
       console.error("Create teacher error:", error);
@@ -153,6 +161,12 @@ const AddTeacherDialog = ({ open, onOpenChange }) => {
           </div>
 
         </div>
+
+        <CustomFieldsForm
+          defs={customDefs}
+          values={customValues}
+          onChange={(fieldId, value) => setCustomValues((p) => ({ ...p, [fieldId]: value }))}
+        />
 
         {/* ===== FOOTER ===== */}
         <DialogFooter className="mt-6">

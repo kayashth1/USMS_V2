@@ -12,12 +12,7 @@ import {
   where,
 } from "firebase/firestore";
 
-import {
-  createUserWithEmailAndPassword,
-  updateProfile,
-} from "firebase/auth";
-
-import { auth, db } from "@/config/firebase";
+import { db } from "@/config/firebase";
 
 export const getTeachersBySchool = async (schoolId) => {
   if (!schoolId) return [];
@@ -58,18 +53,6 @@ export const createTeacher = async (teacherData) => {
   return data;
 };
 
-
-/* =====================================================
-   GET ALL TEACHERS
-===================================================== */
-export const getTeachers = async () => {
-  const snapshot = await getDocs(q);
-
-  return snapshot.docs.map((docSnap) => ({
-    id: docSnap.id,
-    ...docSnap.data(),
-  }));
-};
 
 /* =====================================================
    GET SINGLE TEACHER

@@ -22,6 +22,8 @@ import {
   SelectItem,
 } from "@/components/ui/select";
 
+import { Eye, Pencil, Trash2, GraduationCap } from "lucide-react";
+
 const Students = () => {
   const schoolId = localStorage.getItem("principalSchoolId");
   const navigate = useNavigate();
@@ -149,10 +151,6 @@ const Students = () => {
     }
   };
 
-  if (loading) {
-    return <p className="p-6 text-gray-500">Loading students...</p>;
-  }
-
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -222,57 +220,69 @@ const Students = () => {
               </tr>
             </thead>
             <tbody className="divide-y">
-              {filteredAndSortedStudents.map((s) => (
-                <tr
-                  key={s.id}
-                  className={selectedIds.has(s.id) ? "bg-red-50" : ""}
-                >
-                  <td className="px-4 py-3">
-                    <Checkbox
-                      checked={selectedIds.has(s.id)}
-                      onCheckedChange={() => toggleOne(s.id)}
-                    />
-                  </td>
-                  <td className="px-4 py-3">{s.roll || "-"}</td>
-                  <td className="px-4 py-3">
-                    <p className="font-medium">{s.fullName}</p>
-                    <p className="text-xs text-gray-500">{s.email}</p>
-                  </td>
-                  <td className="px-4 py-3">{classesMap[s.classId] || "-"}</td>
-                  <td className="px-4 py-3">{s.parentName || "-"}</td>
-                  <td className="px-4 py-3">{s.contact || "-"}</td>
-                  <td className="px-4 py-3 flex gap-2">
-                    <Button
-                      size="icon"
-                      variant="ghost"
-                      onClick={() => navigate(`/students/${s.id}`)}
-                    >
-                      👁️
-                    </Button>
-                    <Button
-                      size="icon"
-                      variant="ghost"
-                      onClick={() => {
-                        setSelectedStudent(s);
-                        setEditOpen(true);
-                      }}
-                    >
-                      ✏️
-                    </Button>
-                    <Button
-                      size="icon"
-                      variant="ghost"
-                      className="text-red-500"
-                      onClick={() => {
-                        setStudentToDelete(s);
-                        setDeleteOpen(true);
-                      }}
-                    >
-                      🗑️
-                    </Button>
+              {loading ? (
+                Array.from({ length: 5 }).map((_, i) => (
+                  <tr key={i}>
+                    {Array.from({ length: 7 }).map((__, j) => (
+                      <td key={j} className="px-4 py-3">
+                        <div className="h-4 bg-gray-100 rounded animate-pulse" />
+                      </td>
+                    ))}
+                  </tr>
+                ))
+              ) : filteredAndSortedStudents.length === 0 ? (
+                <tr>
+                  <td colSpan={7} className="py-16 text-center">
+                    <GraduationCap size={32} className="mx-auto text-gray-300 mb-2" />
+                    <p className="text-sm text-gray-400">No students found</p>
                   </td>
                 </tr>
-              ))}
+              ) : (
+                filteredAndSortedStudents.map((s) => (
+                  <tr
+                    key={s.id}
+                    className={selectedIds.has(s.id) ? "bg-indigo-50" : "hover:bg-gray-50 transition-colors"}
+                  >
+                    <td className="px-4 py-3">
+                      <Checkbox
+                        checked={selectedIds.has(s.id)}
+                        onCheckedChange={() => toggleOne(s.id)}
+                      />
+                    </td>
+                    <td className="px-4 py-3 text-gray-500">{s.roll || "—"}</td>
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-2.5">
+                        <div className="h-8 w-8 rounded-full bg-indigo-100 text-indigo-700 flex items-center justify-center text-xs font-semibold shrink-0">
+                          {s.fullName?.[0]?.toUpperCase() ?? "?"}
+                        </div>
+                        <div>
+                          <p className="font-medium text-gray-800">{s.fullName}</p>
+                          <p className="text-xs text-gray-400">{s.email || "—"}</p>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-4 py-3 text-gray-600">{classesMap[s.classId] || "—"}</td>
+                    <td className="px-4 py-3 text-gray-600">{s.parentName || "—"}</td>
+                    <td className="px-4 py-3 text-gray-600">{s.contact || "—"}</td>
+                    <td className="px-4 py-3">
+                      <div className="flex gap-1">
+                        <Button size="icon" variant="ghost" className="h-8 w-8 text-gray-500 hover:text-indigo-600"
+                          onClick={() => navigate(`/students/${s.id}`)}>
+                          <Eye size={15} />
+                        </Button>
+                        <Button size="icon" variant="ghost" className="h-8 w-8 text-gray-500 hover:text-amber-600"
+                          onClick={() => { setSelectedStudent(s); setEditOpen(true); }}>
+                          <Pencil size={15} />
+                        </Button>
+                        <Button size="icon" variant="ghost" className="h-8 w-8 text-gray-500 hover:text-red-600"
+                          onClick={() => { setStudentToDelete(s); setDeleteOpen(true); }}>
+                          <Trash2 size={15} />
+                        </Button>
+                      </div>
+                    </td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
           <div className="p-4 text-sm text-gray-500">

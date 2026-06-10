@@ -13,7 +13,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
-import { Plus, Mail, Phone, Pencil, Trash2 } from "lucide-react";
+import { Plus, Mail, Phone, Pencil, Trash2, Users } from "lucide-react";
 
 const Teachers = () => {
   const navigate = useNavigate();
@@ -82,19 +82,13 @@ const Teachers = () => {
     }
   };
 
-  if (loading) {
-    return <div className="p-6 text-gray-500">Loading teachers...</div>;
-  }
-
   return (
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-semibold">Teacher Management</h1>
-          <p className="text-gray-500">
-            Manage teachers associated with your school
-          </p>
+          <p className="text-gray-500">Manage teachers associated with your school</p>
         </div>
         <div className="flex gap-2">
           {selectedIds.size > 0 && (
@@ -129,70 +123,106 @@ const Teachers = () => {
       </Tabs>
 
       {/* Teacher Cards */}
-      {visibleTeachers.length === 0 ? (
-        <p className="text-gray-500">No teachers found.</p>
+      {loading ? (
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <Card key={i}>
+              <CardContent className="p-6 space-y-4">
+                <div className="flex items-center gap-3">
+                  <div className="h-10 w-10 rounded-full bg-gray-100 animate-pulse shrink-0" />
+                  <div className="space-y-1.5 flex-1">
+                    <div className="h-4 bg-gray-100 rounded animate-pulse w-3/4" />
+                    <div className="h-3 bg-gray-100 rounded animate-pulse w-1/2" />
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <div className="h-3 bg-gray-100 rounded animate-pulse" />
+                  <div className="h-3 bg-gray-100 rounded animate-pulse w-2/3" />
+                </div>
+                <div className="h-8 bg-gray-100 rounded animate-pulse" />
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      ) : visibleTeachers.length === 0 ? (
+        <div className="text-center py-16">
+          <Users size={32} className="mx-auto text-gray-300 mb-2" />
+          <p className="text-gray-400 text-sm">No teachers found</p>
+        </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           {visibleTeachers.map((teacher) => {
             const isSelected = selectedIds.has(teacher.id);
+            const initials = teacher.fullName
+              ?.split(" ").filter(Boolean).map((w) => w[0].toUpperCase()).join("").slice(0, 2) ?? "T";
             return (
               <Card
                 key={teacher.id}
-                className={isSelected ? "ring-2 ring-red-400" : ""}
+                className={isSelected ? "ring-2 ring-indigo-400" : "hover:shadow-md transition-shadow"}
               >
                 <CardContent className="p-6 space-y-4">
-                  {/* Header row with checkbox */}
-                  <div className="flex justify-between items-start">
-                    <div className="flex items-center gap-3">
-                      <Checkbox
-                        checked={isSelected}
-                        onCheckedChange={() => toggleOne(teacher.id)}
-                      />
-                      <h3 className="font-semibold">{teacher.fullName}</h3>
+                  {/* Avatar + name + checkbox */}
+                  <div className="flex items-start gap-3">
+                    <Checkbox
+                      checked={isSelected}
+                      onCheckedChange={() => toggleOne(teacher.id)}
+                      className="mt-1 shrink-0"
+                    />
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <div className="h-10 w-10 rounded-full bg-indigo-100 text-indigo-700 flex items-center justify-center text-sm font-semibold shrink-0">
+                        {initials}
+                      </div>
+                      <div className="min-w-0">
+                        <h3 className="font-semibold text-gray-800 truncate">{teacher.fullName}</h3>
+                        <span className={`text-xs font-medium px-1.5 py-0.5 rounded-full ${
+                          teacher.isActive !== false
+                            ? "bg-green-100 text-green-700"
+                            : "bg-gray-100 text-gray-500"
+                        }`}>
+                          {teacher.isActive !== false ? "Active" : "Inactive"}
+                        </span>
+                      </div>
                     </div>
                   </div>
 
                   {/* Contact */}
-                  <div className="text-sm text-gray-600 space-y-1">
-                    <div className="flex items-center gap-2">
-                      <Mail size={14} />
-                      {teacher.email}
+                  <div className="text-sm text-gray-500 space-y-1">
+                    <div className="flex items-center gap-2 truncate">
+                      <Mail size={13} className="shrink-0" />
+                      <span className="truncate">{teacher.email}</span>
                     </div>
                     <div className="flex items-center gap-2">
-                      <Phone size={14} />
-                      {teacher.phone || "-"}
+                      <Phone size={13} className="shrink-0" />
+                      {teacher.phone || "—"}
                     </div>
                   </div>
 
                   {/* Actions */}
-                  <div className="flex justify-between pt-2">
+                  <div className="flex justify-between items-center pt-1">
                     <Button
-                      variant="secondary"
+                      size="sm"
+                      variant="outline"
+                      className="gap-1.5 text-xs"
                       onClick={() => navigate(`/teachers/${teacher.id}`)}
                     >
                       View Profile
                     </Button>
-                    <div className="flex gap-2">
+                    <div className="flex gap-1">
                       <Button
                         size="icon"
                         variant="ghost"
-                        onClick={() => {
-                          setSelectedTeacher(teacher);
-                          setEditOpen(true);
-                        }}
+                        className="h-8 w-8 text-gray-400 hover:text-amber-600"
+                        onClick={() => { setSelectedTeacher(teacher); setEditOpen(true); }}
                       >
-                        <Pencil size={16} />
+                        <Pencil size={14} />
                       </Button>
                       <Button
                         size="icon"
                         variant="ghost"
-                        className="text-red-500"
-                        onClick={() => {
-                          setTeacherToDelete(teacher);
-                          setDeleteOpen(true);
-                        }}
+                        className="h-8 w-8 text-gray-400 hover:text-red-600"
+                        onClick={() => { setTeacherToDelete(teacher); setDeleteOpen(true); }}
                       >
-                        <Trash2 size={16} />
+                        <Trash2 size={14} />
                       </Button>
                     </div>
                   </div>

@@ -92,6 +92,7 @@ export const createStudent = onRequest({ cors: true }, async (req, res) => {
       parentName,
       contact,
       schoolId,
+      customFields,
     } = req.body;
 
     if (!fullName || !email || !password || !schoolId || !classId) {
@@ -129,6 +130,7 @@ export const createStudent = onRequest({ cors: true }, async (req, res) => {
         parentName: parentName || "",
         contact: contact || "",
         schoolId,
+        customFields: customFields || {},
         currentMonthAttendancePercentage: 0,
         role: "student",
         isActive: true,
@@ -320,6 +322,122 @@ export const deleteNotice = onRequest(async (req, res) => {
   }
 });
 
+
+export const createSchool = onRequest(async (req, res) => {
+  res.set("Access-Control-Allow-Origin", "*");
+  res.set("Access-Control-Allow-Methods", "POST, OPTIONS");
+  res.set("Access-Control-Allow-Headers", "Content-Type");
+  if (req.method === "OPTIONS") return res.status(204).send("");
+
+  try {
+    const {
+      schoolName, schoolCode, schoolEmail, schoolPhone, schoolAddress,
+      principalName, principalEmail, principalPassword,
+    } = req.body;
+
+    if (!schoolName || !principalEmail || !principalPassword || !principalName) {
+      return res.status(400).json({ error: "schoolName, principalName, principalEmail and principalPassword are required" });
+    }
+
+    // Create Firebase Auth user for principal
+    const userRecord = await admin.auth().createUser({
+      email:       principalEmail.trim(),
+      password:    principalPassword,
+      displayName: principalName.trim(),
+    });
+    const uid = userRecord.uid;
+
+    await admin.auth().setCustomUserClaims(uid, { role: "principal" });
+
+    // Create school document
+    const schoolRef = await admin.firestore().collection("schools").add({
+      name:          schoolName.trim(),
+      code:          (schoolCode    || "").trim(),
+      email:         (schoolEmail   || "").trim(),
+      phone:         (schoolPhone   || "").trim(),
+      address:       (schoolAddress || "").trim(),
+      isActive:      true,
+      plan:          "free",
+      planExpiresAt: null,
+      principalId:   uid,
+      createdAt:     admin.firestore.FieldValue.serverTimestamp(),
+    });
+    const schoolId = schoolRef.id;
+
+    // Create principal document
+    await admin.firestore().collection("principals").doc(uid).set({
+      uid,
+      schoolId,
+      fullName:  principalName.trim(),
+      email:     principalEmail.trim(),
+      isActive:  true,
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+    });
+
+    return res.json({ success: true, schoolId, principalUid: uid });
+  } catch (err) {
+    console.error("createSchool error:", err);
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+export const deleteSchool = onRequest(async (req, res) => {
+  res.set("Access-Control-Allow-Origin", "*");
+  res.set("Access-Control-Allow-Methods", "POST, OPTIONS");
+  res.set("Access-Control-Allow-Headers", "Content-Type");
+  if (req.method === "OPTIONS") return res.status(204).send("");
+
+  try {
+    const { schoolId } = req.body;
+    if (!schoolId) return res.status(400).json({ error: "schoolId is required" });
+
+    const db = admin.firestore();
+
+    // Collect all Auth UIDs before deleting docs
+    const [studentsSnap, teachersSnap, principalsSnap] = await Promise.all([
+      db.collection("students").where("schoolId", "==", schoolId).get(),
+      db.collection("teachers").where("schoolId", "==", schoolId).get(),
+      db.collection("principals").where("schoolId", "==", schoolId).get(),
+    ]);
+
+    const authUids = [
+      ...studentsSnap.docs.map((d) => d.id),
+      ...teachersSnap.docs.map((d) => d.id),
+      ...principalsSnap.docs.map((d) => d.id),
+    ];
+
+    // Delete Firestore docs across all collections
+    const COLLECTIONS = [
+      "students", "teachers", "principals", "classes", "subjects",
+      "classSubjects", "teacherClassSubjects", "feeStructures",
+      "studentFeeProfiles", "feePayments", "notices", "attendance",
+      "timetable", "timePeriods", "customFieldDefs", "alumni",
+    ];
+
+    await Promise.all(
+      COLLECTIONS.map(async (col) => {
+        const snap = await db.collection(col).where("schoolId", "==", schoolId).get();
+        if (snap.empty) return;
+        const batch = db.batch();
+        snap.docs.forEach((d) => batch.delete(d.ref));
+        await batch.commit();
+      })
+    );
+
+    // Delete Firebase Auth accounts
+    if (authUids.length > 0) {
+      await admin.auth().deleteUsers(authUids);
+    }
+
+    // Delete the school document itself
+    await db.collection("schools").doc(schoolId).delete();
+
+    return res.json({ success: true, deletedAuthAccounts: authUids.length });
+  } catch (err) {
+    console.error("deleteSchool error:", err);
+    return res.status(500).json({ error: err.message });
+  }
+});
 
 export { onTeacherAssigned } from "./triggers/onTeacherAssigned.js";
 export { onStudentClassAssigned } from "./triggers/onStudentClassAssigned.js";

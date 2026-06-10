@@ -26,6 +26,8 @@ const StudentTable = ({ filters, onStudentClick }) => {
       return;
     }
 
+    let cancelled = false;
+
     const fetchStudents = async () => {
       setLoading(true);
 
@@ -38,17 +40,14 @@ const StudentTable = ({ filters, onStudentClick }) => {
 
       const snap = await getDocs(q);
 
-      setStudents(
-        snap.docs.map((d) => ({
-          id: d.id,
-          ...d.data(),
-        }))
-      );
-
-      setLoading(false);
+      if (!cancelled) {
+        setStudents(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
+        setLoading(false);
+      }
     };
 
     fetchStudents();
+    return () => { cancelled = true; };
   }, [filters.classId, schoolId]);
 
   /* =======================
@@ -62,69 +61,43 @@ const StudentTable = ({ filters, onStudentClick }) => {
       return;
     }
 
+    let cancelled = false;
+
     const fetchAttendance = async () => {
       let mergedDays = {};
 
-      // ✅ Month selected
       if (filters.month) {
         const ref = doc(
           db,
-          "attendance",
-          schoolId,
-          "classes",
-          filters.classId,
-          "years",
-          filters.year,
-          "months",
-          filters.month
+          "attendance", schoolId,
+          "classes", filters.classId,
+          "years", filters.year,
+          "months", filters.month
         );
-
         const snap = await getDoc(ref);
         mergedDays = snap.exists() ? snap.data().days || {} : {};
-      }
-
-      // ✅ Year selected, month NOT selected
-      else {
+      } else {
+        // getDocs already returns each month document with its data —
+        // no need to re-fetch each doc individually.
         const monthsSnap = await getDocs(
           collection(
             db,
-            "attendance",
-            schoolId,
-            "classes",
-            filters.classId,
-            "years",
-            filters.year,
+            "attendance", schoolId,
+            "classes", filters.classId,
+            "years", filters.year,
             "months"
           )
         );
-
         for (const m of monthsSnap.docs) {
-          const monthRef = doc(
-            db,
-            "attendance",
-            schoolId,
-            "classes",
-            filters.classId,
-            "years",
-            filters.year,
-            "months",
-            m.id
-          );
-
-          const monthSnap = await getDoc(monthRef);
-          if (monthSnap.exists()) {
-            mergedDays = {
-              ...mergedDays,
-              ...monthSnap.data().days,
-            };
-          }
+          mergedDays = { ...mergedDays, ...(m.data().days || {}) };
         }
       }
 
-      setAttendanceDays(mergedDays);
+      if (!cancelled) setAttendanceDays(mergedDays);
     };
 
     fetchAttendance();
+    return () => { cancelled = true; };
   }, [filters.classId, filters.year, filters.month, schoolId]);
 
   /* =======================

@@ -29,7 +29,15 @@ const Login = () => {
 
       const uid = cred.user.uid;
 
-      // 2️⃣ Check principal record
+      // 2️⃣ Check if superadmin
+      const superadminSnap = await getDoc(doc(db, "superadmins", uid));
+      if (superadminSnap.exists()) {
+        localStorage.setItem("isSuperAdmin", "true");
+        navigate("/superadmin");
+        return;
+      }
+
+      // 3️⃣ Check principal record
       const ref = doc(db, "principals", uid);
       const snap = await getDoc(ref);
 
@@ -39,15 +47,15 @@ const Login = () => {
 
       const principal = snap.data();
 
-      localStorage.setItem("principalSchoolId", principal.schoolId);
-      localStorage.setItem("principalId", uid);
-
-
       if (!principal.isActive) {
         throw new Error("Account is deactivated");
       }
 
-      // 3️⃣ Success → dashboard
+      localStorage.setItem("principalSchoolId", principal.schoolId);
+      localStorage.setItem("principalId", uid);
+      localStorage.setItem("principalName", principal.fullName || principal.name || "");
+
+      // 4️⃣ Success → dashboard
       navigate("/dashboard");
     } catch (err) {
       console.error("Login error:", err);

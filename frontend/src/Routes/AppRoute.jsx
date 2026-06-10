@@ -5,7 +5,13 @@ import Dashboard from "../Pages/dashboard/Dashboard";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 
 import AdminLayout from "@/components/Layout/AdminLayout";
+import SuperAdminLayout from "@/components/Layout/SuperAdminLayout";
 import ProtectedRoute from "@/Routes/ProtectedRoute";
+import SuperAdminRoute from "@/Routes/SuperAdminRoute";
+import SuperAdminDashboard from "@/Pages/superadmin/SuperAdminDashboard";
+import SuperAdminSchools from "@/Pages/superadmin/SuperAdminSchools";
+import SuperAdminCreateSchool from "@/Pages/superadmin/SuperAdminCreateSchool";
+import SuperAdminSchoolDetail from "@/Pages/superadmin/SuperAdminSchoolDetail";
 
 import Notices from "@/Pages/notices/NoticeManagement";
 import Teachers from "@/Pages/teachers/Teachers";
@@ -19,6 +25,8 @@ import Alumni from "@/Pages/alumni/Alumni";
 import Books from "@/Pages/books/Books";
 import Settings from "@/Pages/settings/Settings";
 import StudentProfile from "@/Pages/students/StudentProfile";
+import Exams from "@/Pages/exams/Exams";
+import VehicleTracking from "@/Pages/vehicle/VehicleTracking";
 
 const AppRoutes = () => {
   return (
@@ -27,6 +35,20 @@ const AppRoutes = () => {
         {/* ================= PUBLIC ================= */}
         <Route path="/" element={<Home />} />
         <Route path="/login" element={<Login />} />
+
+        {/* ================= PROTECTED (SUPERADMIN) ================= */}
+        <Route
+          element={
+            <SuperAdminRoute>
+              <SuperAdminLayout />
+            </SuperAdminRoute>
+          }
+        >
+          <Route path="/superadmin"                      element={<SuperAdminDashboard />} />
+          <Route path="/superadmin/schools"              element={<SuperAdminSchools />} />
+          <Route path="/superadmin/schools/new"          element={<SuperAdminCreateSchool />} />
+          <Route path="/superadmin/schools/:schoolId"    element={<SuperAdminSchoolDetail />} />
+        </Route>
 
         {/* ================= PROTECTED (PRINCIPAL) ================= */}
         <Route
@@ -51,6 +73,8 @@ const AppRoutes = () => {
           <Route path="/fees" element={<Fees />} />
           <Route path="/alumni" element={<Alumni />} />
           <Route path="/books" element={<Books />} />
+          <Route path="/exams" element={<Exams />} />
+          <Route path="/vehicle" element={<VehicleTracking />} />
           <Route path="/settings" element={<Settings />} />
         </Route>
       </Routes>

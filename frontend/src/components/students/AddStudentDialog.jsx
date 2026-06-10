@@ -14,6 +14,8 @@ import {
 
 import { createStudent } from "@/services/student.service";
 import { getClassesBySchool } from "@/services/class.service";
+import { useCustomFieldDefs } from "@/hooks/useCustomFieldDefs";
+import CustomFieldsForm from "@/components/common/CustomFieldsForm";
 import {
   getFixedFeeStructures, getVariableFeeStructures,
   createStudentFeeProfile, currentAcademicYear,
@@ -27,9 +29,12 @@ const EMPTY_FORM = {
 const AddStudentDialog = ({ open, onOpenChange, onSuccess }) => {
   const schoolId = localStorage.getItem("principalSchoolId");
 
-  const [loading,   setLoading]   = useState(false);
-  const [classes,   setClasses]   = useState([]);
-  const [form,      setForm]      = useState(EMPTY_FORM);
+  const [loading,       setLoading]       = useState(false);
+  const [classes,       setClasses]       = useState([]);
+  const [form,          setForm]          = useState(EMPTY_FORM);
+  const [customValues,  setCustomValues]  = useState({});
+
+  const { defs: customDefs } = useCustomFieldDefs(schoolId, "student");
 
   // Fee-related state
   const [feeSchedule,     setFeeScheduleState] = useState("monthly");
@@ -57,6 +62,7 @@ const AddStudentDialog = ({ open, onOpenChange, onSuccess }) => {
     };
     load();
     setForm(EMPTY_FORM);
+    setCustomValues({});
     setSelectedVars(new Set());
     setFixedFees([]);
   }, [schoolId, open]);
@@ -97,18 +103,23 @@ const AddStudentDialog = ({ open, onOpenChange, onSuccess }) => {
       if (!form.fullName || !form.email || !form.password || !form.roll || !form.classId)
         throw new Error("Please fill all required fields");
 
+      const missingRequired = customDefs.filter((f) => f.required && !customValues[f.id]?.toString().trim());
+      if (missingRequired.length > 0)
+        throw new Error(`Required fields missing: ${missingRequired.map((f) => f.label).join(", ")}`);
+
       setLoading(true);
 
       const result = await createStudent({
-        fullName:   form.fullName,
-        email:      form.email,
-        password:   form.password,
-        roll:       form.roll,
-        classId:    form.classId,
-        classLabel: form.classLabel,
-        parentName: form.parentName,
-        contact:    form.contact,
+        fullName:     form.fullName,
+        email:        form.email,
+        password:     form.password,
+        roll:         form.roll,
+        classId:      form.classId,
+        classLabel:   form.classLabel,
+        parentName:   form.parentName,
+        contact:      form.contact,
         schoolId,
+        customFields: customValues,
       });
 
       // Create fee profile if fee structures are defined
@@ -171,6 +182,12 @@ const AddStudentDialog = ({ open, onOpenChange, onSuccess }) => {
 
           <Input name="parentName" placeholder="Parent Name"      value={form.parentName} onChange={handleChange} />
           <Input name="contact"    placeholder="Parent Contact"   value={form.contact}    onChange={handleChange} />
+
+          <CustomFieldsForm
+            defs={customDefs}
+            values={customValues}
+            onChange={(fieldId, value) => setCustomValues((p) => ({ ...p, [fieldId]: value }))}
+          />
 
           {/* ── Fee Setup (shown after class is selected) ── */}
           {form.classId && hasFeeStructure && (

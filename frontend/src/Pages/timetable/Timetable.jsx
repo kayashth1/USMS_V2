@@ -163,11 +163,16 @@ const Timetable = () => {
     setSaved(false);
   };
 
+  const selectedClass = classes.find((c) => c.docId === selectedClassId);
+
   const handleSave = async () => {
     if (!selectedClassId) return;
     try {
       setSaving(true);
-      await saveClassTimetable({ classDocId: selectedClassId, schoolId, week });
+      const className = selectedClass
+        ? `${selectedClass.grade}-${selectedClass.section}`
+        : selectedClassId;
+      await saveClassTimetable({ classDocId: selectedClassId, schoolId, week, className });
       setSaved(true);
     } catch (err) {
       alert(err.message);
@@ -175,8 +180,6 @@ const Timetable = () => {
       setSaving(false);
     }
   };
-
-  const selectedClass = classes.find((c) => c.docId === selectedClassId);
 
   return (
     <div className="space-y-6">

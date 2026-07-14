@@ -99,9 +99,16 @@ const Teachers = () => {
         </div>
       </div>
 
-      {/* Search */}
+      {/* Search + Select All */}
       <Card>
-        <CardContent className="p-4">
+        <CardContent className="p-4 flex items-center gap-3">
+          <Checkbox
+            checked={visibleTeachers.length > 0 && visibleTeachers.every((t) => selectedIds.has(t.id))}
+            onCheckedChange={(checked) => {
+              setSelectedIds(checked ? new Set(visibleTeachers.map((t) => t.id)) : new Set());
+            }}
+          />
+          <span className="text-sm text-gray-500 whitespace-nowrap">Select all</span>
           <Input
             placeholder="Search teachers..."
             value={searchTerm}
@@ -162,13 +169,11 @@ const Teachers = () => {
                       </div>
                       <div className="min-w-0">
                         <h3 className="font-semibold text-gray-800 truncate">{teacher.fullName}</h3>
-                        <span className={`text-xs font-medium px-1.5 py-0.5 rounded-full ${
-                          teacher.isActive !== false
-                            ? "bg-green-100 text-green-700"
-                            : "bg-gray-100 text-gray-500"
-                        }`}>
-                          {teacher.isActive !== false ? "Active" : "Inactive"}
-                        </span>
+                        {teacher.employeeId && (
+                          <span className="text-xs font-medium px-1.5 py-0.5 rounded-full bg-green-100 text-green-700">
+                            {teacher.employeeId}
+                          </span>
+                        )}
                       </div>
                     </div>
                   </div>

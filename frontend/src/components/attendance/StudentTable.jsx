@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { PageLoader } from "@/components/ui/spinner";
 import {
   collection,
   getDocs,
@@ -126,7 +127,7 @@ const StudentTable = ({ filters, onStudentClick }) => {
   }
 
   if (loading) {
-    return <p className="text-gray-500">Loading students...</p>;
+    return <PageLoader label="Loading students…" />;
   }
 
  return (

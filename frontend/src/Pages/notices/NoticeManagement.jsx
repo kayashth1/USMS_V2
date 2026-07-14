@@ -13,6 +13,8 @@ import {
 
 import { createNotice, deleteNotice, uploadNoticeAttachment } from "@/services/notice.service";
 import { Bell, Paperclip, Trash2, X } from "lucide-react";
+import { useToast } from "@/components/ui/toast";
+import { useConfirm } from "@/components/ui/confirm-dialog";
 
 const AUDIENCE = {
   all:      { label: "Everyone",  className: "bg-indigo-100 text-indigo-700" },
@@ -29,6 +31,8 @@ const fmt = (ts) => {
 
 const NoticeManagement = () => {
   const schoolId = localStorage.getItem("principalSchoolId");
+  const { toast } = useToast();
+  const confirm   = useConfirm();
 
   const [notices,     setNotices]     = useState([]);
   const [loading,     setLoading]     = useState(true);
@@ -61,7 +65,7 @@ const NoticeManagement = () => {
 
   const handleCreate = async () => {
     if (!title || !message || !audience) {
-      alert("Please fill all fields");
+      toast.error("Please fill all fields");
       return;
     }
     try {
@@ -73,21 +77,29 @@ const NoticeManagement = () => {
       }
       await createNotice({ title, message, targetAudience: audience, attachments: uploadedAttachments });
       setTitle(""); setMessage(""); setAudience(""); setFiles([]);
+      toast.success("Notice published successfully");
       await loadNotices();
     } catch (err) {
-      alert(err.message || "Failed to create notice");
+      toast.error(err.message || "Failed to create notice");
     } finally {
       setSubmitting(false);
     }
   };
 
   const handleDelete = async (noticeId) => {
-    if (!window.confirm("Permanently delete this notice?")) return;
+    const ok = await confirm({
+      title:        "Delete Notice",
+      description:  "This notice will be permanently deleted and cannot be recovered.",
+      confirmLabel: "Delete",
+      danger:       true,
+    });
+    if (!ok) return;
     try {
       await deleteNotice(noticeId);
+      toast.success("Notice deleted");
       await loadNotices();
     } catch (err) {
-      alert(err.message || "Failed to delete notice");
+      toast.error(err.message || "Failed to delete notice");
     }
   };
 

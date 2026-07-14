@@ -4,6 +4,7 @@ import {
 } from "firebase/firestore";
 import { db } from "@/config/firebase";
 import { Card, CardContent } from "@/components/ui/card";
+import { PageLoader } from "@/components/ui/spinner";
 import { Button } from "@/components/ui/button";
 import {
   Select, SelectTrigger, SelectValue, SelectContent, SelectItem,
@@ -31,7 +32,6 @@ const Timetable = () => {
   const [week,   setWeek]   = useState({});
   const [saving, setSaving] = useState(false);
   const [loadingTimetable, setLoadingTimetable] = useState(false);
-  const [saved,  setSaved]  = useState(false);
 
   // Subject+teacher assignments for the selected class
   const [classAssignments,    setClassAssignments]    = useState([]); // [{ subjectId, subjectName, teacherId, teacherName }]
@@ -130,6 +130,21 @@ const Timetable = () => {
     setEditCell({ day, periodId });
   };
 
+  const autoSave = async (newWeek) => {
+    if (!selectedClassId) return;
+    setSaving(true);
+    const className = selectedClass
+      ? `${selectedClass.grade}-${selectedClass.section}`
+      : selectedClassId;
+    try {
+      await saveClassTimetable({ classDocId: selectedClassId, schoolId, week: newWeek, className });
+    } catch (err) {
+      alert("Failed to save timetable: " + err.message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const applyEdit = () => {
     if (!editCell) return;
     const { day, periodId } = editCell;
@@ -141,45 +156,28 @@ const Timetable = () => {
     const teacherName = hasTeacher
       ? classAssignments.find((a) => a.teacherId === cellTeacher)?.teacherName ?? null
       : null;
-    setWeek((prev) => ({
-      ...prev,
+    const newWeek = {
+      ...week,
       [day]: {
-        ...(prev[day] ?? {}),
+        ...(week[day] ?? {}),
         [periodId]: hasSubject || hasTeacher
           ? { subjectId: hasSubject ? cellSubject : null, subjectName,
               teacherId:  hasTeacher ? cellTeacher : null, teacherName }
           : null,
       },
-    }));
+    };
+    setWeek(newWeek);
     setEditCell(null);
-    setSaved(false);
+    autoSave(newWeek);
   };
 
   const clearCell = (day, periodId) => {
-    setWeek((prev) => ({
-      ...prev,
-      [day]: { ...(prev[day] ?? {}), [periodId]: null },
-    }));
-    setSaved(false);
+    const newWeek = { ...week, [day]: { ...(week[day] ?? {}), [periodId]: null } };
+    setWeek(newWeek);
+    autoSave(newWeek);
   };
 
   const selectedClass = classes.find((c) => c.docId === selectedClassId);
-
-  const handleSave = async () => {
-    if (!selectedClassId) return;
-    try {
-      setSaving(true);
-      const className = selectedClass
-        ? `${selectedClass.grade}-${selectedClass.section}`
-        : selectedClassId;
-      await saveClassTimetable({ classDocId: selectedClassId, schoolId, week, className });
-      setSaved(true);
-    } catch (err) {
-      alert(err.message);
-    } finally {
-      setSaving(false);
-    }
-  };
 
   return (
     <div className="space-y-6">
@@ -189,10 +187,8 @@ const Timetable = () => {
           <h1 className="text-2xl font-semibold">Class Timetable</h1>
           <p className="text-gray-500">Set the weekly schedule for each class</p>
         </div>
-        {selectedClassId && (
-          <Button onClick={handleSave} disabled={saving}>
-            {saving ? "Saving..." : saved ? "✓ Saved" : "Save Timetable"}
-          </Button>
+        {saving && (
+          <span className="text-sm text-gray-400 animate-pulse">Saving...</span>
         )}
       </div>
 
@@ -202,7 +198,7 @@ const Timetable = () => {
           <label className="text-sm font-medium whitespace-nowrap">Select Class:</label>
           <Select
             value={selectedClassId}
-            onValueChange={(v) => { setSelectedClassId(v); setSaved(false); }}
+            onValueChange={(v) => { setSelectedClassId(v); }}
           >
             <SelectTrigger className="w-48">
               <SelectValue placeholder="Choose a class" />
@@ -248,7 +244,7 @@ const Timetable = () => {
         <Card>
           <CardContent className="p-0 overflow-x-auto">
             {loadingTimetable ? (
-              <p className="p-6 text-sm text-gray-500">Loading timetable...</p>
+              <div className="p-6"><PageLoader label="Loading timetable…" /></div>
             ) : (
               <table className="w-full text-sm border-collapse">
                 <thead>

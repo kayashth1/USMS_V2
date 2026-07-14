@@ -5,6 +5,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 
 import PromoteStudentsDialog from "@/components/academics/PromoteStudentsDialog";
+import { InlineLoader } from "@/components/ui/spinner";
 
 import { getClassesBySchool } from "@/services/class.service";
 import { getStudentsBySchool } from "@/services/student.service";
@@ -79,7 +80,7 @@ const Academics = () => {
           </div>
 
           {loading ? (
-            <p className="text-sm text-gray-500">Loading classes...</p>
+            <InlineLoader label="Loading classes…" />
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               {sortedClasses.map((cls) => {

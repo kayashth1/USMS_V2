@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { School, Users, GraduationCap, CheckCircle } from "lucide-react";
 
 import { Card, CardContent } from "@/components/ui/card";
+import { PageLoader } from "@/components/ui/spinner";
 import { Badge } from "@/components/ui/badge";
 import { getPlatformStats, getRecentSchools } from "@/services/superadmin.service";
 
@@ -32,7 +33,7 @@ const SuperAdminDashboard = () => {
     load();
   }, []);
 
-  if (loading) return <p className="text-gray-500">Loading dashboard...</p>;
+  if (loading) return <PageLoader label="Loading dashboard…" />;
 
   const statCards = [
     { label: "Total Schools",   value: stats?.totalSchools,  icon: School,        color: "text-indigo-600 bg-indigo-50"  },

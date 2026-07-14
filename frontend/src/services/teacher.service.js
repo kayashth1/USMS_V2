@@ -70,6 +70,23 @@ export const getTeacherById = async (teacherId) => {
 };
 
 /* =====================================================
+   CHANGE TEACHER PASSWORD (via Admin SDK cloud function)
+===================================================== */
+export const changeTeacherPassword = async (teacherId, newPassword) => {
+  const res = await fetch(
+    "https://changeteacherpassword-z4likafkwq-uc.a.run.app",
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ teacherId, newPassword }),
+    }
+  );
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || "Failed to change password");
+  return data;
+};
+
+/* =====================================================
    UPDATE TEACHER
 ===================================================== */
 export const updateTeacher = async (teacherId, updatedData) => {

@@ -1,0 +1,142 @@
+{
+  "indexes": [
+    {
+      "collectionGroup": "feeInstallments",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "feeProfileId",      "order": "ASCENDING" },
+        { "fieldPath": "installmentNumber", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "feeInstallments",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "feeProfileId", "order": "ASCENDING" },
+        { "fieldPath": "dueDate",      "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "feeInstallments",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "studentId",    "order": "ASCENDING" },
+        { "fieldPath": "academicYear", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "studentFeeProfiles",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "schoolId",      "order": "ASCENDING" },
+        { "fieldPath": "academicYear",  "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "studentFeeProfiles",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "studentId",     "order": "ASCENDING" },
+        { "fieldPath": "academicYear",  "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "feePayments",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "studentId",     "order": "ASCENDING" },
+        { "fieldPath": "createdAt",     "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "feePayments",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "schoolId",      "order": "ASCENDING" },
+        { "fieldPath": "createdAt",     "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "paymentAllocations",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "installmentId", "order": "ASCENDING" },
+        { "fieldPath": "createdAt",     "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "paymentAllocations",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "paymentId",     "order": "ASCENDING" },
+        { "fieldPath": "createdAt",     "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "feeRevisions",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "feeProfileId",  "order": "ASCENDING" },
+        { "fieldPath": "createdAt",     "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "feeRevisions",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "schoolId",      "order": "ASCENDING" },
+        { "fieldPath": "createdAt",     "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "feeRevisions",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "studentId",     "order": "ASCENDING" },
+        { "fieldPath": "createdAt",     "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "academicYears",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "schoolId",      "order": "ASCENDING" },
+        { "fieldPath": "status",        "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "feeStructures",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "schoolId",      "order": "ASCENDING" },
+        { "fieldPath": "type",          "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "feeStructures",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "schoolId",      "order": "ASCENDING" },
+        { "fieldPath": "classId",       "order": "ASCENDING" },
+        { "fieldPath": "type",          "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "promotionBatches",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "schoolId",      "order": "ASCENDING" },
+        { "fieldPath": "createdAt",     "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "studentPromotions",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "batchId",       "order": "ASCENDING" },
+        { "fieldPath": "studentId",     "order": "ASCENDING" }
+      ]
+    }
+  ],
+  "fieldOverrides": []
+}

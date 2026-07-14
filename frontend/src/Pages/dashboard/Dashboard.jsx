@@ -99,7 +99,7 @@ const Dashboard = () => {
     { label: "Add Student",     icon: UserPlus,      path: "/students",   color: "bg-blue-50 text-blue-700 hover:bg-blue-100"     },
     { label: "Add Teacher",     icon: Users,         path: "/teachers",   color: "bg-green-50 text-green-700 hover:bg-green-100"   },
     { label: "Post Notice",     icon: Bell,          path: "/notices",    color: "bg-amber-50 text-amber-700 hover:bg-amber-100"   },
-    { label: "Take Attendance", icon: ClipboardList, path: "/attendance", color: "bg-purple-50 text-purple-700 hover:bg-purple-100" },
+    { label: "Check Attendance", icon: ClipboardList, path: "/attendance", color: "bg-purple-50 text-purple-700 hover:bg-purple-100" },
     { label: "Class Timetable", icon: CalendarDays,  path: "/timetable",  color: "bg-indigo-50 text-indigo-700 hover:bg-indigo-100" },
     { label: "Fee Management",  icon: Calendar,      path: "/fees",       color: "bg-rose-50 text-rose-700 hover:bg-rose-100"      },
   ];

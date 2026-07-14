@@ -17,6 +17,7 @@ import {
   TabsContent,
 } from "@/components/ui/tabs";
 import TeacherTimetableTab from "@/components/teachers/TeacherTimetableTab";
+import EditTeacherDialog from "@/components/teachers/EditTeacherDialog";
 
 const TeacherProfile = () => {
   const { teacherId } = useParams();
@@ -26,33 +27,26 @@ const TeacherProfile = () => {
   const [school,      setSchool]      = useState(null);
   const [assignments, setAssignments] = useState([]);
   const [loading,     setLoading]     = useState(true);
+  const [editOpen,    setEditOpen]    = useState(false);
 
   const schoolId = localStorage.getItem("principalSchoolId");
   const { defs: customDefs } = useCustomFieldDefs(schoolId, "teacher");
 
   /* ================= FETCH TEACHER ================= */
-  useEffect(() => {
-    const fetchTeacher = async () => {
-      try {
-        if (!teacherId) return;
+  const fetchTeacher = async () => {
+    try {
+      if (!teacherId) return;
+      const snap = await getDoc(doc(db, "teachers", teacherId));
+      setTeacher(snap.exists() ? { id: snap.id, ...snap.data() } : null);
+    } catch (err) {
+      console.error("Failed to fetch teacher:", err);
+      setTeacher(null);
+    } finally {
+      setLoading(false);
+    }
+  };
 
-        const snap = await getDoc(doc(db, "teachers", teacherId));
-        if (!snap.exists()) {
-          setTeacher(null);
-          return;
-        }
-
-        setTeacher({ id: snap.id, ...snap.data() });
-      } catch (err) {
-        console.error("Failed to fetch teacher:", err);
-        setTeacher(null);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchTeacher();
-  }, [teacherId]);
+  useEffect(() => { fetchTeacher(); }, [teacherId]); // eslint-disable-line
 
   /* ================= FETCH SCHOOL ================= */
   useEffect(() => {
@@ -161,15 +155,9 @@ const TeacherProfile = () => {
           </h1>
         </div>
 
-        <Badge
-          className={
-            teacher.isActive === false
-              ? "bg-red-100 text-red-700"
-              : "bg-green-100 text-green-700"
-          }
-        >
-          {teacher.isActive === false ? "Inactive" : "Active"}
-        </Badge>
+        <Button size="sm" variant="outline" onClick={() => setEditOpen(true)}>
+          Edit
+        </Button>
       </div>
 
       {/* ===== Profile Summary ===== */}
@@ -272,6 +260,13 @@ const TeacherProfile = () => {
 </TabsContent>
 
       </Tabs>
+
+      <EditTeacherDialog
+        open={editOpen}
+        onOpenChange={setEditOpen}
+        teacher={teacher}
+        onUpdated={fetchTeacher}
+      />
     </div>
   );
 };

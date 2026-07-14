@@ -11,13 +11,15 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
+import { Eye, EyeOff } from "lucide-react";
 import { createTeacher } from "@/services/teacher.service";
 import { useCustomFieldDefs } from "@/hooks/useCustomFieldDefs";
 import CustomFieldsForm from "@/components/common/CustomFieldsForm";
 
-const AddTeacherDialog = ({ open, onOpenChange }) => {
+const AddTeacherDialog = ({ open, onOpenChange, onSuccess }) => {
   const [loading,      setLoading]      = useState(false);
   const [customValues, setCustomValues] = useState({});
+  const [showPwd,      setShowPwd]      = useState(false);
 
   const schoolId = localStorage.getItem("principalSchoolId");
   const { defs: customDefs } = useCustomFieldDefs(schoolId, "teacher");
@@ -76,6 +78,7 @@ const AddTeacherDialog = ({ open, onOpenChange }) => {
       setForm(initialForm);
       setCustomValues({});
       onOpenChange(false);
+      onSuccess?.();
     } catch (error) {
       console.error("Create teacher error:", error);
       alert(error.message);
@@ -124,12 +127,22 @@ const AddTeacherDialog = ({ open, onOpenChange }) => {
 
           <div className="space-y-1">
             <Label>Password *</Label>
-            <Input
-              type="password"
-              name="password"
-              value={form.password}
-              onChange={handleChange}
-            />
+            <div className="relative">
+              <Input
+                type={showPwd ? "text" : "password"}
+                name="password"
+                value={form.password}
+                onChange={handleChange}
+                className="pr-10"
+              />
+              <button
+                type="button"
+                onClick={() => setShowPwd((v) => !v)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+              >
+                {showPwd ? <EyeOff size={15} /> : <Eye size={15} />}
+              </button>
+            </div>
           </div>
 
           <div className="space-y-1">

@@ -15,17 +15,20 @@ import {
   Select, SelectTrigger, SelectValue, SelectContent, SelectItem,
 } from "@/components/ui/select";
 import { ChevronDown, ChevronRight } from "lucide-react";
+import { PageLoader, InlineLoader, Spinner } from "@/components/ui/spinner";
+import ManageStudentFeesDialog from "@/components/fees/ManageStudentFeesDialog";
 
 import { getClassesBySchool } from "@/services/class.service";
+import { invalidateSchoolSettingsCache } from "@/hooks/useSchoolSettings";
 import { getStudentsBySchool } from "@/services/student.service";
 import {
   getFixedFeeStructures, getVariableFeeStructures,
   addFeeStructure, updateFeeStructure, deleteFeeStructure,
   getStudentFeeProfiles, createStudentFeeProfile,
   getFeePaymentsByStudent, getFeePaymentsBySchool,
-  markAsPaid, recordPartialPayment,
-  closePeriod, generatePeriods, formatPeriod,
-  currentAcademicYear,
+  getStudentFeeYearsAll,
+  recordPayment, closePeriod,
+  generatePeriods, formatPeriod, currentAcademicYear,
 } from "@/services/fees.service";
 
 const STATUS_COLORS = {
@@ -34,8 +37,8 @@ const STATUS_COLORS = {
   pending: "bg-red-100 text-red-700",
 };
 
-const EMPTY_FIXED = { classId: "", label: "Tuition Fee", amount: "" };
-const EMPTY_VAR   = { label: "", amount: "", isOneTime: false };
+const EMPTY_FIXED = { classId: "", label: "Tuition Fee", amount: "", isOneTime: false, chargedDuringHolidays: true };
+const EMPTY_VAR   = { label: "", amount: "", isOneTime: false, chargedDuringHolidays: true };
 
 const downloadReceipt = (data) => {
   const pdf = new jsPDF({ unit: "mm", format: "a5" });
@@ -116,6 +119,7 @@ const Fees = () => {
   const [filterClass,       setFilterClass]        = useState("all");
   const [expandedId,        setExpandedId]         = useState(null);
   const [expandedPays,      setExpandedPays]       = useState([]);
+  const [expandedYears,     setExpandedYears]      = useState([]);
   const [loadingPays,       setLoadingPays]        = useState(false);
   const [showClosedHistory, setShowClosedHistory]  = useState(false);
 
@@ -147,6 +151,13 @@ const Fees = () => {
   const [setupVars,     setSetupVars]     = useState(new Set());
   const [setupSaving,   setSetupSaving]   = useState(false);
 
+  // ── Manage fees dialog (mid-year changes) ──
+  const [manageOpen,    setManageOpen]    = useState(false);
+  const [manageStudent, setManageStudent] = useState(null);
+
+  // Holiday months for this school
+  const [holidayMonths, setHolidayMonths] = useState([]);
+
   // ── Collect payment dialog ──
   const [collectOpen,    setCollectOpen]    = useState(false);
   const [collectPayment, setCollectPayment] = useState(null);
@@ -165,17 +176,19 @@ const Fees = () => {
     setLoading(true);
     try {
       const schoolSnap = await getDoc(doc(db, "schools", schoolId));
+      let yearToLoad = feeAcademicYear;
       if (schoolSnap.exists()) {
         const sd = schoolSnap.data();
         if (sd.feeSchedule)     setFeeSchedule(sd.feeSchedule);
-        if (sd.feeAcademicYear) setFeeAcademicYear(sd.feeAcademicYear);
+        if (sd.feeAcademicYear) { setFeeAcademicYear(sd.feeAcademicYear); yearToLoad = sd.feeAcademicYear; }
+        if (sd.holidayMonths)   setHolidayMonths(sd.holidayMonths);
       }
       const [cls, stu, fixed, variable, profiles] = await Promise.all([
         getClassesBySchool(schoolId),
         getStudentsBySchool(schoolId),
         getFixedFeeStructures(schoolId),
         getVariableFeeStructures(schoolId),
-        getStudentFeeProfiles(schoolId),
+        getStudentFeeProfiles(schoolId, yearToLoad),
       ]);
       setClasses(cls);
       setStudents(stu);
@@ -210,6 +223,7 @@ const Fees = () => {
     setSavingSettings(true);
     try {
       await updateDoc(doc(db, "schools", schoolId), { feeSchedule, feeAcademicYear });
+      invalidateSchoolSettingsCache();
     } catch (e) { alert(e.message); }
     finally { setSavingSettings(false); }
   };
@@ -218,7 +232,7 @@ const Fees = () => {
   const openAddFixed = () => { setEditFixed(null); setFixedForm(EMPTY_FIXED); setFixedOpen(true); };
   const openEditFixed = (f) => {
     setEditFixed(f);
-    setFixedForm({ classId: f.classId, label: f.label, amount: String(f.amount) });
+    setFixedForm({ classId: f.classId, label: f.label, amount: String(f.amount), isOneTime: f.isOneTime || false, chargedDuringHolidays: f.chargedDuringHolidays ?? true });
     setFixedOpen(true);
   };
   const saveFixed = async () => {
@@ -232,6 +246,8 @@ const Fees = () => {
         classLabel: `${cls.grade}-${cls.section}`,
         label: fixedForm.label,
         amount: Number(fixedForm.amount),
+        isOneTime: fixedForm.isOneTime || false,
+        chargedDuringHolidays: fixedForm.chargedDuringHolidays ?? true,
         academicYear: feeAcademicYear,
       };
       if (editFixed) await updateFeeStructure(editFixed.id, payload);
@@ -249,12 +265,12 @@ const Fees = () => {
 
   /* ── Variable fee CRUD ── */
   const openAddVar = () => { setEditVar(null); setVarForm(EMPTY_VAR); setVarOpen(true); };
-  const openEditVar = (v) => { setEditVar(v); setVarForm({ label: v.label, amount: String(v.amount), isOneTime: v.isOneTime || false }); setVarOpen(true); };
+  const openEditVar = (v) => { setEditVar(v); setVarForm({ label: v.label, amount: String(v.amount), isOneTime: v.isOneTime || false, chargedDuringHolidays: v.chargedDuringHolidays ?? true }); setVarOpen(true); };
   const saveVar = async () => {
     if (!varForm.label || !varForm.amount) { alert("Fill all fields"); return; }
     setVarSaving(true);
     try {
-      const payload = { schoolId, type: "variable", label: varForm.label, amount: Number(varForm.amount), isOneTime: varForm.isOneTime || false, academicYear: feeAcademicYear };
+      const payload = { schoolId, type: "variable", label: varForm.label, amount: Number(varForm.amount), isOneTime: varForm.isOneTime || false, chargedDuringHolidays: varForm.chargedDuringHolidays ?? true, academicYear: feeAcademicYear };
       if (editVar) await updateFeeStructure(editVar.id, payload);
       else         await addFeeStructure(payload);
       setVarOpen(false);
@@ -270,32 +286,49 @@ const Fees = () => {
 
   /* ── Expand student row ── */
   const toggleExpand = async (studentId) => {
-    if (expandedId === studentId) { setExpandedId(null); setExpandedPays([]); return; }
+    if (expandedId === studentId) { setExpandedId(null); setExpandedPays([]); setExpandedYears([]); return; }
     setExpandedId(studentId);
     setShowClosedHistory(false);
     setLoadingPays(true);
     try {
-      setExpandedPays(await getFeePaymentsByStudent(studentId));
+      const [pays, years] = await Promise.all([
+        getFeePaymentsByStudent(studentId, feeAcademicYear),
+        getStudentFeeYearsAll(studentId),
+      ]);
+      setExpandedPays(pays);
+      setExpandedYears(years);
     } finally { setLoadingPays(false); }
   };
 
   /* ── Setup fees for student ── */
-  const openSetup = (student) => { setSetupStudent(student); setSetupVars(new Set()); setSetupOpen(true); };
+  const openSetup = (student) => {
+    setSetupStudent(student);
+    setSetupVars(new Set());
+    // Pre-select fixed fees that match the student's class
+    const matched = new Set(fixedFees.filter((f) => f.classId === student.classId).map((f) => f.id));
+    setSetupSelectedFixed(matched);
+    setSetupOpen(true);
+  };
 
-  const setupFixedFee = useMemo(
-    () => setupStudent ? (fixedFees.find((f) => f.classId === setupStudent.classId) || null) : null,
-    [setupStudent, fixedFees]
+  const setupFixedFees = useMemo(
+    () => fixedFees,
+    [fixedFees]
   );
+
+  // Fixed fees the admin has selected for this student (pre-select all for student's class)
+  const [setupSelectedFixed, setSetupSelectedFixed] = useState(new Set());
 
   const saveSetup = async () => {
     if (!setupStudent) return;
     setSetupSaving(true);
     try {
       const items = [];
-      if (setupFixedFee) items.push({ structureId: setupFixedFee.id, label: setupFixedFee.label, amount: setupFixedFee.amount, type: "fixed" });
+      for (const f of setupFixedFees.filter((f) => setupSelectedFixed.has(f.id))) {
+        items.push({ structureId: f.id, label: f.label, amount: f.amount, type: "fixed", isOneTime: f.isOneTime || false, chargedDuringHolidays: f.chargedDuringHolidays ?? true });
+      }
       for (const id of setupVars) {
         const v = variableFees.find((x) => x.id === id);
-        if (v) items.push({ structureId: v.id, label: v.label, amount: v.amount, type: "variable", isOneTime: v.isOneTime || false });
+        if (v) items.push({ structureId: v.id, label: v.label, amount: v.amount, type: "variable", isOneTime: v.isOneTime || false, chargedDuringHolidays: v.chargedDuringHolidays ?? true });
       }
       if (items.length === 0) { alert("Select at least one fee item"); return; }
       await createStudentFeeProfile({
@@ -303,11 +336,11 @@ const Fees = () => {
         studentName: setupStudent.fullName,
         classId: setupStudent.classId,
         classLabel: setupStudent.classLabel || "",
-        schoolId, academicYear: feeAcademicYear, schedule: feeSchedule, items,
+        schoolId, academicYear: feeAcademicYear, schedule: feeSchedule, items, holidayMonths,
       });
       setSetupOpen(false);
-      setFeeProfiles(await getStudentFeeProfiles(schoolId));
-      if (expandedId === setupStudent.id) setExpandedPays(await getFeePaymentsByStudent(setupStudent.id));
+      setFeeProfiles(await getStudentFeeProfiles(schoolId, feeAcademicYear));
+      if (expandedId === setupStudent.id) setExpandedPays(await getFeePaymentsByStudent(setupStudent.id, feeAcademicYear));
     } catch (e) { alert(e.message); }
     finally { setSetupSaving(false); }
   };
@@ -326,28 +359,34 @@ const Fees = () => {
     if (!collectPayment) return;
     setCollectSaving(true);
     try {
-      const effDue = (collectPayment.totalDue || 0) + (collectPayment.carryForward || 0);
-      let receiptNo;
+      let newAmountPaid;
+      let amountCollectedNow;
+
       if (collectMode === "full") {
-        receiptNo = await markAsPaid(collectPayment.id, {
-          totalDue: effDue, collectedBy: collectBy, notes: collectNotes,
-        });
+        // Pay exactly what's outstanding (carryForward + totalDue)
+        newAmountPaid       = (collectPayment.carryForward || 0) + (collectPayment.totalDue || 0);
+        amountCollectedNow  = collectPayment.outstanding || 0;
       } else {
         if (!collectAmount || Number(collectAmount) <= 0) { alert("Enter a valid amount"); return; }
-        receiptNo = await recordPartialPayment(collectPayment.id, {
-          totalDue: effDue, amountPaid: collectAmount, collectedBy: collectBy, notes: collectNotes,
-        });
+        amountCollectedNow = Number(collectAmount);
+        newAmountPaid      = (collectPayment.amountPaid || 0) + amountCollectedNow;
       }
+
+      const payAcademicYear = collectPayment.academicYear || feeAcademicYear;
+      const receiptNo = await recordPayment(collectPayment.id, collectPayment.studentId, payAcademicYear, {
+        amountPaid:  newAmountPaid,
+        collectedBy: collectBy,
+        notes:       collectNotes,
+      });
+
       setCollectOpen(false);
-      // Refresh expanded row
+
+      // Refresh expanded row (ledger was recalculated, so re-fetch)
       if (expandedId === collectPayment.studentId) {
-        setExpandedPays(await getFeePaymentsByStudent(collectPayment.studentId));
+        setExpandedPays(await getFeePaymentsByStudent(collectPayment.studentId, payAcademicYear));
       }
-      // Show receipt dialog
+
       if (receiptNo) {
-        const amountNow = collectMode === "full"
-          ? effDue - (collectPayment.amountPaid || 0)
-          : Number(collectAmount);
         setReceiptData({
           receiptNo,
           studentName:   collectPayment.studentName,
@@ -355,7 +394,7 @@ const Fees = () => {
           period:        collectPayment.periodLabel,
           regularAmount: collectPayment.totalDue || 0,
           carryForward:  collectPayment.carryForward || 0,
-          amount:        amountNow,
+          amount:        amountCollectedNow,
           date:          new Date().toLocaleDateString("en-IN"),
           collectedBy:   collectBy || "",
         });
@@ -368,7 +407,7 @@ const Fees = () => {
   /* ── Load reports ── */
   const loadReports = async () => {
     if (reportsLoaded) return;
-    setAllPayments(await getFeePaymentsBySchool(schoolId));
+    setAllPayments(await getFeePaymentsBySchool(schoolId, feeAcademicYear));
     setReportsLoaded(true);
   };
 
@@ -377,11 +416,13 @@ const Fees = () => {
     if (!closePeriodValue) return;
     setClosingPeriod(true);
     try {
-      const { closed, carriedForward } = await closePeriod(schoolId, closePeriodValue);
+      const { closed, carriedForward, credited } = await closePeriod(schoolId, closePeriodValue, feeAcademicYear);
       setCloseDialogOpen(false);
       setClosePeriodValue("");
-      alert(`Period closed (${closed} records). ${carriedForward} student(s) had unpaid balance carried forward to next month.`);
-      if (expandedId) setExpandedPays(await getFeePaymentsByStudent(expandedId));
+      const parts = [`Period closed (${closed} student${closed !== 1 ? "s" : ""}).`];
+      if (carriedForward > 0) parts.push(`Outstanding balances carried forward to next month.`);
+      alert(parts.join(" "));
+      if (expandedId) setExpandedPays(await getFeePaymentsByStudent(expandedId, feeAcademicYear));
     } catch (e) { alert(e.message); }
     finally { setClosingPeriod(false); }
   };
@@ -450,7 +491,7 @@ const Fees = () => {
       ),
   [studentSummary, reportFilterClass, reportSearch]);
 
-  if (loading) return <p className="p-6 text-gray-500">Loading fees...</p>;
+  if (loading) return <PageLoader label="Loading fees…" />;
 
   return (
     <div className="space-y-6">
@@ -512,7 +553,8 @@ const Fees = () => {
                     <tr>
                       <th className="px-3 py-2 text-left">Class</th>
                       <th className="px-3 py-2 text-left">Label</th>
-                      <th className="px-3 py-2 text-left">Amount / Month</th>
+                      <th className="px-3 py-2 text-left">Amount</th>
+                      <th className="px-3 py-2 text-left">Type</th>
                       <th className="px-3 py-2 text-left">Actions</th>
                     </tr>
                   </thead>
@@ -521,7 +563,12 @@ const Fees = () => {
                       <tr key={f.id}>
                         <td className="px-3 py-2 font-medium">Class {f.classLabel}</td>
                         <td className="px-3 py-2">{f.label}</td>
-                        <td className="px-3 py-2">₹{f.amount?.toLocaleString()}</td>
+                        <td className="px-3 py-2">₹{f.amount?.toLocaleString()}{!f.isOneTime && "/mo"}</td>
+                        <td className="px-3 py-2">
+                          {f.isOneTime
+                            ? <Badge className="bg-purple-100 text-purple-700">One-time</Badge>
+                            : <Badge className="bg-blue-100 text-blue-700">Monthly</Badge>}
+                        </td>
                         <td className="px-3 py-2 flex gap-1">
                           <Button size="sm" variant="ghost" onClick={() => openEditFixed(f)}>✏️</Button>
                           <Button size="sm" variant="ghost" className="text-red-500" onClick={() => deleteFixed(f.id)}>🗑️</Button>
@@ -653,9 +700,14 @@ const Fees = () => {
                               )}
                             </td>
                             <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
-                              {!profile && (
+                              {!profile ? (
                                 <Button size="sm" variant="outline" onClick={() => openSetup(student)}>
                                   Setup Fees
+                                </Button>
+                              ) : (
+                                <Button size="sm" variant="ghost" className="text-indigo-600 hover:text-indigo-700"
+                                  onClick={() => { setManageStudent(student); setManageOpen(true); }}>
+                                  Manage Fees
                                 </Button>
                               )}
                             </td>
@@ -670,11 +722,18 @@ const Fees = () => {
                                       <div key={i} className="h-8 bg-white rounded border" />
                                     ))}
                                   </div>
-                                ) : expandedPays.length === 0 ? (
-                                  <p className="text-sm text-gray-400">No payment records.</p>
                                 ) : (() => {
-                                  const openPays   = expandedPays.filter((p) => !p.isClosed);
-                                  const closedPays = expandedPays.filter((p) => p.isClosed);
+                                  // Previous closed academic years — show as summary, not month-by-month
+                                  const prevYears = expandedYears.filter(
+                                    (y) => y.academicYear !== feeAcademicYear && y.status === "closed"
+                                  );
+
+                                  // Separate opening-balance record from monthly rows
+                                  const openingRec  = expandedPays.find((p) => p.sortIndex === -1);
+                                  const monthlyPays = expandedPays.filter((p) => p.sortIndex !== -1);
+                                  const openPays    = monthlyPays.filter((p) => !p.isClosed);
+                                  const closedPays  = monthlyPays.filter((p) =>  p.isClosed);
+
                                   const renderRows = (rows) => rows.map((p) => {
                                     const effDue = (p.totalDue || 0) + (p.carryForward || 0);
                                     return (
@@ -691,19 +750,42 @@ const Fees = () => {
                                           <Badge className={STATUS_COLORS[p.status] ?? ""}>{p.status}</Badge>
                                         </td>
                                         <td className="py-2">
-                                          {p.isClosed ? (
-                                            <span className="text-xs text-gray-400 italic">Locked</span>
-                                          ) : p.status !== "paid" ? (
-                                            <Button size="sm" variant="outline" onClick={() => openCollect(p)}>
-                                              Collect
-                                            </Button>
-                                          ) : (
-                                            <span className="text-xs text-gray-400">{p.receiptNo}</span>
-                                          )}
+                                          <div className="flex items-center gap-2 flex-wrap">
+                                            {!p.isClosed && p.status !== "paid" && (
+                                              <Button size="sm" variant="outline" onClick={() => openCollect(p)}>
+                                                Collect
+                                              </Button>
+                                            )}
+                                            {p.isClosed && p.status !== "paid" && !p.receiptNo && (
+                                              <span className="text-xs text-gray-400 italic">Locked</span>
+                                            )}
+                                            {p.receiptNo && (
+                                              <button
+                                                className="text-xs text-indigo-600 hover:underline"
+                                                onClick={() => {
+                                                  const effDue = (p.totalDue || 0) + (p.carryForward || 0);
+                                                  downloadReceipt({
+                                                    receiptNo:     p.receiptNo,
+                                                    studentName:   p.studentName,
+                                                    classLabel:    p.classLabel,
+                                                    period:        p.periodLabel,
+                                                    regularAmount: p.totalDue || 0,
+                                                    carryForward:  p.carryForward || 0,
+                                                    amount:        p.amountPaid || 0,
+                                                    date:          p.paidAt?.toDate?.()?.toLocaleDateString("en-IN") || "—",
+                                                    collectedBy:   p.collectedBy || "",
+                                                  });
+                                                }}
+                                              >
+                                                ↓ Receipt
+                                              </button>
+                                            )}
+                                          </div>
                                         </td>
                                       </tr>
                                     );
                                   });
+
                                   const tableHead = (
                                     <thead className="text-gray-500 text-xs">
                                       <tr>
@@ -715,31 +797,77 @@ const Fees = () => {
                                       </tr>
                                     </thead>
                                   );
+
                                   return (
-                                    <div className="space-y-3">
-                                      {openPays.length === 0 ? (
-                                        <p className="text-sm text-gray-400 italic">No open periods — all months closed.</p>
-                                      ) : (
-                                        <table className="w-full text-sm">
-                                          {tableHead}
-                                          <tbody className="divide-y divide-gray-200">{renderRows(openPays)}</tbody>
-                                        </table>
+                                    <div className="space-y-4">
+
+                                      {/* ── Previous year summaries (one line per closed year) ── */}
+                                      {prevYears.length > 0 && (
+                                        <div className="space-y-1.5">
+                                          <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide">Past Academic Years</p>
+                                          {prevYears.map((y) => {
+                                            const bal = y.closingBalance ?? 0;
+                                            return (
+                                              <div key={y.id} className="flex items-center justify-between bg-white border rounded-md px-3 py-2 text-sm">
+                                                <span className="font-medium text-gray-700">{y.academicYear}</span>
+                                                <span className="text-xs text-gray-400">{y.classLabel}</span>
+                                                {bal === 0
+                                                  ? <Badge className="bg-green-100 text-green-700">No Dues</Badge>
+                                                  : bal > 0
+                                                    ? <Badge className="bg-red-100 text-red-600">₹{bal.toLocaleString()} outstanding</Badge>
+                                                    : <Badge className="bg-blue-100 text-blue-700">₹{Math.abs(bal).toLocaleString()} credit</Badge>
+                                                }
+                                              </div>
+                                            );
+                                          })}
+                                        </div>
                                       )}
-                                      {closedPays.length > 0 && (
-                                        <div>
-                                          <button
-                                            className="text-xs text-gray-400 hover:text-gray-600 underline"
-                                            onClick={() => setShowClosedHistory((v) => !v)}
-                                          >
-                                            {showClosedHistory ? "Hide" : "Show"} {closedPays.length} closed period{closedPays.length > 1 ? "s" : ""}
-                                          </button>
-                                          {showClosedHistory && (
-                                            <table className="w-full text-sm mt-2">
+
+                                      {/* ── Opening balance carried from previous year ── */}
+                                      {openingRec && (
+                                        <div className={`flex items-center justify-between rounded-md px-3 py-2 text-sm border ${openingRec.outstanding > 0 ? "bg-amber-50 border-amber-200" : "bg-green-50 border-green-200"}`}>
+                                          <span className="font-medium text-gray-700">Opening Balance (carried in)</span>
+                                          {openingRec.outstanding === 0
+                                            ? <Badge className="bg-green-100 text-green-700">Settled</Badge>
+                                            : openingRec.outstanding > 0
+                                              ? <span className="text-red-600 font-semibold text-xs">₹{openingRec.outstanding.toLocaleString()} due</span>
+                                              : <span className="text-green-600 font-semibold text-xs">₹{Math.abs(openingRec.outstanding).toLocaleString()} credit</span>
+                                          }
+                                        </div>
+                                      )}
+
+                                      {/* ── Current year months ── */}
+                                      {expandedPays.length === 0 ? (
+                                        <p className="text-sm text-gray-400">No payment records for {feeAcademicYear}.</p>
+                                      ) : monthlyPays.length === 0 ? (
+                                        <p className="text-sm text-gray-400 italic">No monthly records yet.</p>
+                                      ) : (
+                                        <>
+                                          {openPays.length === 0 ? (
+                                            <p className="text-sm text-gray-400 italic">No open periods — all months closed.</p>
+                                          ) : (
+                                            <table className="w-full text-sm">
                                               {tableHead}
-                                              <tbody className="divide-y divide-gray-200">{renderRows(closedPays)}</tbody>
+                                              <tbody className="divide-y divide-gray-200">{renderRows(openPays)}</tbody>
                                             </table>
                                           )}
-                                        </div>
+                                          {closedPays.length > 0 && (
+                                            <div>
+                                              <button
+                                                className="text-xs text-gray-400 hover:text-gray-600 underline"
+                                                onClick={() => setShowClosedHistory((v) => !v)}
+                                              >
+                                                {showClosedHistory ? "Hide" : "Show"} {closedPays.length} closed month{closedPays.length > 1 ? "s" : ""} ({feeAcademicYear})
+                                              </button>
+                                              {showClosedHistory && (
+                                                <table className="w-full text-sm mt-2">
+                                                  {tableHead}
+                                                  <tbody className="divide-y divide-gray-200">{renderRows(closedPays)}</tbody>
+                                                </table>
+                                              )}
+                                            </div>
+                                          )}
+                                        </>
                                       )}
                                     </div>
                                   );
@@ -760,36 +888,9 @@ const Fees = () => {
         {/* ═══ TAB 3: REPORTS ═══ */}
         <TabsContent value="reports" className="space-y-4">
           {!reportsLoaded ? (
-            <p className="text-sm text-gray-400">Loading reports...</p>
+            <InlineLoader label="Loading reports…" />
           ) : (
             <>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                {[
-                  { label: "Total Billed",    value: `₹${stats.total.toLocaleString()}`,      color: "text-gray-800" },
-                  { label: "Total Collected", value: `₹${stats.collected.toLocaleString()}`,  color: "text-green-600" },
-                  { label: "Pending",         value: `${stats.pending} records`,              color: "text-red-500" },
-                  { label: "Collection Rate", value: `${stats.rate}%`,                        color: "text-indigo-600" },
-                ].map((c) => (
-                  <Card key={c.label}>
-                    <CardContent className="p-4 space-y-1">
-                      <p className="text-xs text-gray-500">{c.label}</p>
-                      <p className={`text-xl font-bold ${c.color}`}>{c.value}</p>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-
-              <Card>
-                <CardContent className="p-4 space-y-2">
-                  <div className="flex justify-between text-sm font-medium">
-                    <span>Overall Collection Rate</span><span>{stats.rate}%</span>
-                  </div>
-                  <div className="w-full bg-gray-200 rounded-full h-2.5">
-                    <div className="bg-green-500 h-2.5 rounded-full" style={{ width: `${stats.rate}%` }} />
-                  </div>
-                </CardContent>
-              </Card>
-
               <Card>
                 <CardContent className="p-6 space-y-4">
                   <div className="flex flex-wrap gap-3 items-center">
@@ -909,10 +1010,34 @@ const Fees = () => {
                 onChange={(e) => setFixedForm((p) => ({ ...p, label: e.target.value }))} />
             </div>
             <div className="space-y-1">
-              <label className="text-sm font-medium">Amount per Month (₹)</label>
+              <label className="text-sm font-medium">
+                {fixedForm.isOneTime ? "Amount (₹)" : "Amount per Month (₹)"}
+              </label>
               <Input type="number" value={fixedForm.amount}
                 onChange={(e) => setFixedForm((p) => ({ ...p, amount: e.target.value }))} />
             </div>
+            <div className="flex items-center gap-2 pt-1">
+              <Checkbox
+                id="fixed-onetime"
+                checked={fixedForm.isOneTime}
+                onCheckedChange={(checked) => setFixedForm((p) => ({ ...p, isOneTime: !!checked }))}
+              />
+              <label htmlFor="fixed-onetime" className="text-sm cursor-pointer">
+                One-time fee <span className="text-gray-400">(charged only once, not every month)</span>
+              </label>
+            </div>
+            {!fixedForm.isOneTime && (
+              <div className="flex items-center gap-2">
+                <Checkbox
+                  id="fixed-holiday"
+                  checked={fixedForm.chargedDuringHolidays}
+                  onCheckedChange={(checked) => setFixedForm((p) => ({ ...p, chargedDuringHolidays: !!checked }))}
+                />
+                <label htmlFor="fixed-holiday" className="text-sm cursor-pointer">
+                  Charge during holiday months
+                </label>
+              </div>
+            )}
           </div>
           <DialogFooter className="gap-2">
             <Button variant="outline" onClick={() => setFixedOpen(false)}>Cancel</Button>
@@ -946,6 +1071,18 @@ const Fees = () => {
                 One-time fee <span className="text-gray-400">(charged only once, not every month)</span>
               </label>
             </div>
+            {!varForm.isOneTime && (
+              <div className="flex items-center gap-2">
+                <Checkbox
+                  id="var-holiday"
+                  checked={varForm.chargedDuringHolidays}
+                  onCheckedChange={(checked) => setVarForm((p) => ({ ...p, chargedDuringHolidays: !!checked }))}
+                />
+                <label htmlFor="var-holiday" className="text-sm cursor-pointer">
+                  Charge during holiday months
+                </label>
+              </div>
+            )}
           </div>
           <DialogFooter className="gap-2">
             <Button variant="outline" onClick={() => setVarOpen(false)}>Cancel</Button>
@@ -967,15 +1104,32 @@ const Fees = () => {
               </p>
 
               <div className="space-y-2">
-                <p className="text-sm font-medium">Fixed Fee (auto)</p>
-                {setupFixedFee ? (
-                  <div className="flex items-center gap-3 bg-indigo-50 rounded-md p-3">
-                    <Checkbox checked disabled />
-                    <span className="text-sm flex-1">{setupFixedFee.label}</span>
-                    <span className="text-sm font-medium">₹{setupFixedFee.amount?.toLocaleString()}/{cycleLabel}</span>
-                  </div>
+                <p className="text-sm font-medium">Fixed Fees</p>
+                {setupFixedFees.length === 0 ? (
+                  <p className="text-xs text-amber-600">No fixed fees defined. Add one in Fee Structure first.</p>
                 ) : (
-                  <p className="text-xs text-amber-600">No fixed fee for this class. Add one in Fee Structure first.</p>
+                  setupFixedFees.map((f) => (
+                    <div key={f.id} className="flex items-center gap-3 border rounded-md p-3">
+                      <Checkbox
+                        checked={setupSelectedFixed.has(f.id)}
+                        onCheckedChange={(checked) => setSetupSelectedFixed((prev) => {
+                          const next = new Set(prev);
+                          checked ? next.add(f.id) : next.delete(f.id);
+                          return next;
+                        })}
+                      />
+                      <div className="flex-1 min-w-0">
+                        <span className="text-sm">{f.label}</span>
+                        <span className="text-xs text-gray-400 ml-2">Class {f.classLabel}</span>
+                      </div>
+                      {f.isOneTime
+                        ? <Badge className="bg-purple-100 text-purple-700 text-xs mr-1">One-time</Badge>
+                        : null}
+                      <span className="text-sm font-medium">
+                        ₹{f.amount?.toLocaleString()}{f.isOneTime ? "" : `/${cycleLabel}`}
+                      </span>
+                    </div>
+                  ))
                 )}
               </div>
 
@@ -1005,9 +1159,12 @@ const Fees = () => {
               )}
 
               {(() => {
-                const selectedVarFees = variableFees.filter((v) => setupVars.has(v.id));
-                const recurringTotal  = (setupFixedFee?.amount || 0) + selectedVarFees.filter((v) => !v.isOneTime).reduce((s, v) => s + v.amount, 0);
-                const oneTimeTotal    = selectedVarFees.filter((v) => v.isOneTime).reduce((s, v) => s + v.amount, 0);
+                const selectedVarFees  = variableFees.filter((v) => setupVars.has(v.id));
+                const selectedFixed    = setupFixedFees.filter((f) => setupSelectedFixed.has(f.id));
+                const fixedRecurring   = selectedFixed.filter((f) => !f.isOneTime).reduce((s, f) => s + f.amount, 0);
+                const fixedOneTime     = selectedFixed.filter((f) =>  f.isOneTime).reduce((s, f) => s + f.amount, 0);
+                const recurringTotal   = fixedRecurring + selectedVarFees.filter((v) => !v.isOneTime).reduce((s, v) => s + v.amount, 0);
+                const oneTimeTotal     = fixedOneTime   + selectedVarFees.filter((v) =>  v.isOneTime).reduce((s, v) => s + v.amount, 0);
                 return (
                   <div className="bg-gray-50 rounded-md p-3 space-y-1">
                     {recurringTotal > 0 && (
@@ -1029,7 +1186,7 @@ const Fees = () => {
           )}
           <DialogFooter className="gap-2">
             <Button variant="outline" onClick={() => setSetupOpen(false)}>Cancel</Button>
-            <Button onClick={saveSetup} disabled={setupSaving || (!setupFixedFee && setupVars.size === 0)}>
+            <Button onClick={saveSetup} disabled={setupSaving || (setupSelectedFixed.size === 0 && setupVars.size === 0)}>
               {setupSaving ? "Creating..." : "Create Fee Profile"}
             </Button>
           </DialogFooter>
@@ -1064,7 +1221,25 @@ const Fees = () => {
                     </div>
                   </div>
                 )}
-                {!(collectPayment.carryForward > 0) && (
+                {(collectPayment.carryForward || 0) < 0 && (
+                  <div className="mt-1 space-y-0.5 text-xs">
+                    <div className="flex justify-between text-gray-500">
+                      <span>Regular Fee</span>
+                      <span>₹{collectPayment.totalDue?.toLocaleString()}</span>
+                    </div>
+                    <div className="flex justify-between text-green-600 font-medium">
+                      <span>Credit from previous month</span>
+                      <span>−₹{Math.abs(collectPayment.carryForward).toLocaleString()}</span>
+                    </div>
+                    <div className="flex justify-between border-t pt-0.5 font-semibold text-gray-700">
+                      <span>Net Due</span>
+                      <span className={effDue <= 0 ? "text-green-600" : ""}>
+                        {effDue <= 0 ? `Credit ₹${Math.abs(effDue).toLocaleString()}` : `₹${effDue.toLocaleString()}`}
+                      </span>
+                    </div>
+                  </div>
+                )}
+                {!(collectPayment.carryForward) && (
                   <p className="text-gray-500">Total Due: ₹{effDue.toLocaleString()}</p>
                 )}
                 {collectPayment.amountPaid > 0 && (
@@ -1104,7 +1279,7 @@ const Fees = () => {
           <DialogFooter className="gap-2">
             <Button variant="outline" onClick={() => setCollectOpen(false)}>Cancel</Button>
             <Button onClick={savePayment} disabled={collectSaving}>
-              {collectSaving ? "Saving..." : collectMode === "full" ? "Mark as Paid & Print Receipt" : "Save Partial Payment"}
+              {collectSaving ? "Saving..." : collectMode === "full" ? "Mark as Paid & Get Receipt" : "Save & Get Receipt"}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -1149,6 +1324,26 @@ const Fees = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* ═══ DIALOG: Manage Student Fees (mid-year) ═══ */}
+      <ManageStudentFeesDialog
+        open={manageOpen}
+        onOpenChange={setManageOpen}
+        student={manageStudent}
+        profile={manageStudent ? feeProfiles[manageStudent.id] : null}
+        variableFees={variableFees}
+        onUpdated={async () => {
+          const studentId = manageStudent?.id;
+          const [profiles, pays] = await Promise.all([
+            getStudentFeeProfiles(schoolId, feeAcademicYear),
+            expandedId === studentId
+              ? getFeePaymentsByStudent(studentId, feeAcademicYear)
+              : Promise.resolve(null),
+          ]);
+          setFeeProfiles(profiles);
+          if (pays !== null) setExpandedPays(pays);
+        }}
+      />
 
       {/* ═══ DIALOG: Close Period ═══ */}
       <Dialog open={closeDialogOpen} onOpenChange={setCloseDialogOpen}>

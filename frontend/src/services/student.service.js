@@ -26,7 +26,7 @@ export const getStudentsBySchool = async (schoolId) => {
 
   return snap.docs
     .map((d) => ({ id: d.id, ...d.data() }))
-    .filter((s) => s.isActive !== false);
+    .filter((s) => s.isActive !== false && s.status !== "alumni");
 };
 
 /* ================= CREATE STUDENT ================= */

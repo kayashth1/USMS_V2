@@ -20,12 +20,17 @@ import Attendance from "@/Pages/attendance/Attendance";
 import Academics from "@/Pages/academics/Academics";
 import Timetable from "@/Pages/timetable/Timetable";
 import Fees from "@/Pages/fees/Fees";
+import FeesV2 from "@/Pages/fees/FeesV2";
 import Alumni from "@/Pages/alumni/Alumni";
 import Books from "@/Pages/books/Books";
 import Settings from "@/Pages/settings/Settings";
 import StudentProfile from "@/Pages/students/StudentProfile";
 import Exams from "@/Pages/exams/Exams";
 import VehicleTracking from "@/Pages/vehicle/VehicleTracking";
+import Promotion from "@/Pages/promotion/Promotion";
+import PromotionBatchDetails from "@/Pages/promotion/PromotionBatchDetails";
+import AcademicYearRollover from "@/Pages/rollover/AcademicYearRollover";
+import Reports from "@/Pages/reports/Reports";
 
 const AppRoutes = () => {
   return (
@@ -70,10 +75,15 @@ const AppRoutes = () => {
           <Route path="/academics" element={<Academics />} />
           <Route path="/timetable" element={<Timetable />} />
           <Route path="/fees" element={<Fees />} />
+          <Route path="/fees-v2" element={<FeesV2 />} />
           <Route path="/alumni" element={<Alumni />} />
           <Route path="/books" element={<Books />} />
           <Route path="/exams" element={<Exams />} />
           <Route path="/vehicle" element={<VehicleTracking />} />
+          <Route path="/promotion" element={<Promotion />} />
+          <Route path="/promotion/:batchId" element={<PromotionBatchDetails />} />
+          <Route path="/academic-rollover" element={<AcademicYearRollover />} />
+          <Route path="/reports" element={<Reports />} />
           <Route path="/settings" element={<Settings />} />
         </Route>
       </Routes>

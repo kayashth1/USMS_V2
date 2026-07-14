@@ -1,32 +1,17 @@
-import { useEffect, useState } from "react";
-import {
-  createClass,
-  getClassesBySchool,
-  toggleClassStatus,
-  deleteClass,
-} from "@/services/class.service";
+import { useState } from "react";
+import { createClass, toggleClassStatus, deleteClass } from "@/services/class.service";
 
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 
-const ClassManagement = () => {
+const ClassManagement = ({ classes, onReload }) => {
   const schoolId = localStorage.getItem("principalSchoolId");
 
-  const [classes, setClasses] = useState([]);
-  const [grade, setGrade] = useState("");
+  const [grade,   setGrade]   = useState("");
   const [section, setSection] = useState("");
   const [loading, setLoading] = useState(false);
-
-  const loadClasses = async () => {
-    const data = await getClassesBySchool(schoolId);
-    setClasses(data);
-  };
-
-  useEffect(() => {
-    if (schoolId) loadClasses();
-  }, [schoolId]);
 
   const handleCreate = async () => {
     try {
@@ -34,7 +19,7 @@ const ClassManagement = () => {
       await createClass({ grade, section, schoolId });
       setGrade("");
       setSection("");
-      await loadClasses();
+      onReload();
     } catch (err) {
       alert(err.message);
     } finally {
@@ -43,18 +28,10 @@ const ClassManagement = () => {
   };
 
   const handleDelete = async (cls) => {
-    const ok = confirm(
-      `Delete class ${cls.id} permanently?\nThis cannot be undone.`
-    );
-    if (!ok) return;
-
+    if (!confirm(`Delete class ${cls.id} permanently?\nThis cannot be undone.`)) return;
     try {
-      await deleteClass({
-        classDocId: cls.docId,
-        classId: cls.id,
-        schoolId,
-      });
-      await loadClasses();
+      await deleteClass({ classDocId: cls.docId, classId: cls.id, schoolId });
+      onReload();
     } catch (err) {
       alert(err.message);
     }
@@ -63,18 +40,11 @@ const ClassManagement = () => {
   return (
     <Card>
       <CardContent className="p-6 space-y-6">
-
-        {/* Header */}
         <div>
-          <h2 className="text-lg font-semibold">
-            Class & Section Management
-          </h2>
-          <p className="text-sm text-gray-500">
-            Create sections like 10A, 10B. Grade & section are locked after creation.
-          </p>
+          <h2 className="text-lg font-semibold">Class & Section Management</h2>
+          <p className="text-sm text-gray-500">Create sections like 10A, 10B. Grade & section are locked after creation.</p>
         </div>
 
-        {/* Create */}
         <div className="flex gap-3 items-end">
           <div>
             <label className="text-sm">Grade</label>
@@ -87,7 +57,6 @@ const ClassManagement = () => {
               placeholder="10"
             />
           </div>
-
           <div>
             <label className="text-sm">Section</label>
             <Input
@@ -96,48 +65,31 @@ const ClassManagement = () => {
               placeholder="A"
             />
           </div>
-
-          <Button
-            onClick={handleCreate}
-            disabled={loading || !grade || !section}
-          >
+          <Button onClick={handleCreate} disabled={loading || !grade || !section}>
             Add Class
           </Button>
         </div>
 
-        {/* List */}
         <div className="space-y-3">
           {classes.map((cls) => (
-            <div
-              key={cls.docId}
-              className="flex items-center justify-between border rounded-lg p-3"
-            >
+            <div key={cls.docId} className="flex items-center justify-between border rounded-lg p-3">
               <div>
                 <p className="font-medium">{cls.id}</p>
-                <p className="text-xs text-gray-500">
-                  Grade {cls.grade} • Section {cls.section}
-                </p>
+                <p className="text-xs text-gray-500">Grade {cls.grade} • Section {cls.section}</p>
               </div>
-
               <div className="flex items-center gap-3">
                 <Switch
                   checked={cls.isActive}
-                  onCheckedChange={(val) =>
-                    toggleClassStatus(cls.docId, val).then(loadClasses)
-                  }
+                  onCheckedChange={(val) => toggleClassStatus(cls.docId, val).then(onReload)}
                 />
-
-                <Button
-                  variant="destructive"
-                  onClick={() => handleDelete(cls)}
-                >
-                  Delete
-                </Button>
+                <Button variant="destructive" size="sm" onClick={() => handleDelete(cls)}>Delete</Button>
               </div>
             </div>
           ))}
+          {classes.length === 0 && (
+            <p className="text-sm text-gray-400">No classes added yet.</p>
+          )}
         </div>
-
       </CardContent>
     </Card>
   );

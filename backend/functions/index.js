@@ -25,6 +25,7 @@ export const createTeacher = onRequest(async (req, res) => {
       joiningDate,
       address,
       schoolId, // 🔥 REQUIRED
+      customFields,
     } = req.body;
 
     // ================= VALIDATION =================
@@ -59,6 +60,7 @@ export const createTeacher = onRequest(async (req, res) => {
       joiningDate: joiningDate || "",
       address: address || "",
       schoolId,               // 🔥 FOREIGN KEY
+      customFields: customFields || {},
       role: "teacher",
       isActive: true,
       createdAt: admin.firestore.FieldValue.serverTimestamp(),
@@ -165,30 +167,61 @@ export const deleteStudent = onRequest(async (req, res) => {
     const { studentId } = req.body;
 
     if (!studentId) {
-      return res.status(400).json({
-        error: "studentId is required",
-      });
+      return res.status(400).json({ error: "studentId is required" });
     }
 
-    /* ================= DELETE AUTH USER ================= */
-    await admin.auth().deleteUser(studentId);
+    const db = admin.firestore();
 
-    /* ================= DELETE FIRESTORE ================= */
-    await admin.firestore()
-      .collection("students")
-      .doc(studentId)
-      .delete();
+    /* ── 1. Delete Firebase Auth account ── */
+    try {
+      await admin.auth().deleteUser(studentId);
+    } catch (err) {
+      // user-not-found is fine (already deleted or never had auth)
+      if (err.code !== "auth/user-not-found") throw err;
+    }
+
+    /* ── 2. Delete main student document ── */
+    await db.collection("students").doc(studentId).delete();
+
+    /* ── 3. Delete fee profile (single doc keyed by studentId) and all year entities ── */
+    await db.collection("studentFeeProfiles").doc(studentId).delete();
+    const feeYearsSnap = await db.collection("studentFeeYears").where("studentId", "==", studentId).get();
+    if (!feeYearsSnap.empty) {
+      const b = db.batch();
+      feeYearsSnap.docs.forEach((d) => b.delete(d.ref));
+      await b.commit();
+    }
+
+    /* ── 4. Delete all fee payment records for this student ── */
+    const paymentsSnap = await db
+      .collection("feePayments")
+      .where("studentId", "==", studentId)
+      .get();
+
+    if (!paymentsSnap.empty) {
+      // Batch-delete in chunks of 500 (Firestore limit)
+      const chunks = [];
+      for (let i = 0; i < paymentsSnap.docs.length; i += 500) {
+        chunks.push(paymentsSnap.docs.slice(i, i + 500));
+      }
+      await Promise.all(
+        chunks.map((chunk) => {
+          const batch = db.batch();
+          chunk.forEach((d) => batch.delete(d.ref));
+          return batch.commit();
+        })
+      );
+    }
 
     return res.json({
       success: true,
-      message: "Student permanently deleted",
+      message: "Student and all associated data permanently deleted",
+      deletedPayments: paymentsSnap.size,
     });
 
   } catch (error) {
     console.error("Delete student error:", error);
-    return res.status(500).json({
-      error: error.message,
-    });
+    return res.status(500).json({ error: error.message });
   }
 });
 
@@ -410,7 +443,7 @@ export const deleteSchool = onRequest(async (req, res) => {
     const COLLECTIONS = [
       "students", "teachers", "principals", "classes", "subjects",
       "classSubjects", "teacherClassSubjects", "feeStructures",
-      "studentFeeProfiles", "feePayments", "notices", "attendance",
+      "studentFeeProfiles", "studentFeeYears", "feePayments", "notices", "attendance",
       "timetable", "timePeriods", "customFieldDefs", "alumni",
     ];
 
@@ -436,6 +469,27 @@ export const deleteSchool = onRequest(async (req, res) => {
   } catch (err) {
     console.error("deleteSchool error:", err);
     return res.status(500).json({ error: err.message });
+  }
+});
+
+export const changeTeacherPassword = onRequest(async (req, res) => {
+  res.set("Access-Control-Allow-Origin", "*");
+  res.set("Access-Control-Allow-Methods", "POST, OPTIONS");
+  res.set("Access-Control-Allow-Headers", "Content-Type");
+  if (req.method === "OPTIONS") return res.status(204).send("");
+
+  try {
+    const { teacherId, newPassword } = req.body;
+    if (!teacherId || !newPassword)
+      return res.status(400).json({ error: "teacherId and newPassword are required" });
+    if (newPassword.length < 6)
+      return res.status(400).json({ error: "Password must be at least 6 characters" });
+
+    await admin.auth().updateUser(teacherId, { password: newPassword });
+    return res.json({ success: true });
+  } catch (error) {
+    console.error("Change teacher password error:", error);
+    return res.status(500).json({ error: error.message });
   }
 });
 

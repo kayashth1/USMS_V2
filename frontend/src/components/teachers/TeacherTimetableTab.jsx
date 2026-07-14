@@ -3,6 +3,7 @@ import { doc, getDoc } from "firebase/firestore";
 import { db } from "@/config/firebase";
 import { getTimePeriodsBySchool } from "@/services/timePeriod.service";
 import { Card, CardContent } from "@/components/ui/card";
+import { PageLoader } from "@/components/ui/spinner";
 
 const DAYS = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday"];
 const DAY_LABELS = {
@@ -52,7 +53,7 @@ const TeacherTimetableTab = ({ teacherId, schoolId }) => {
     return () => { cancelled = true; };
   }, [teacherId, schoolId]);
 
-  if (loading) return <p className="text-gray-500 text-sm">Loading timetable…</p>;
+  if (loading) return <PageLoader label="Loading timetable…" />;
 
   const grid = buildGrid(byClass);
   const isEmpty = Object.keys(grid).length === 0;

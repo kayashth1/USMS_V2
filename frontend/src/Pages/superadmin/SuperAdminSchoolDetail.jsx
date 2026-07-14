@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
+import { sendPasswordResetEmail } from "firebase/auth";
+import { auth } from "@/config/firebase";
 
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -43,6 +45,10 @@ const SuperAdminSchoolDetail = () => {
   const [deleteInput,    setDeleteInput]    = useState("");
   const [deleting,       setDeleting]       = useState(false);
 
+  // Reset password state
+  const [resetting,      setResetting]      = useState(false);
+  const [resetMsg,       setResetMsg]       = useState("");
+
   useEffect(() => {
     const load = async () => {
       try {
@@ -85,6 +91,20 @@ const SuperAdminSchoolDetail = () => {
       alert(err.message);
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleResetPassword = async () => {
+    if (!principal?.email) return;
+    try {
+      setResetting(true);
+      setResetMsg("");
+      await sendPasswordResetEmail(auth, principal.email);
+      setResetMsg(`Password reset email sent to ${principal.email}`);
+    } catch (err) {
+      setResetMsg(`Failed: ${err.message}`);
+    } finally {
+      setResetting(false);
     }
   };
 
@@ -172,6 +192,21 @@ const SuperAdminSchoolDetail = () => {
             <Info label="Name"  value={principal?.fullName} />
             <Info label="Email" value={principal?.email} />
             <Info label="Phone" value={principal?.phone} />
+            <div className="pt-1">
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={handleResetPassword}
+                disabled={resetting || !principal?.email}
+              >
+                {resetting ? "Sending..." : "Send Password Reset Email"}
+              </Button>
+              {resetMsg && (
+                <p className={`text-xs mt-2 ${resetMsg.startsWith("Failed") ? "text-red-500" : "text-green-600"}`}>
+                  {resetMsg}
+                </p>
+              )}
+            </div>
           </CardContent>
         </Card>
 

@@ -5,6 +5,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Eye, EyeOff } from "lucide-react";
 import { createSchool } from "@/services/superadmin.service";
 
 const EMPTY = {
@@ -16,6 +17,7 @@ const SuperAdminCreateSchool = () => {
   const navigate = useNavigate();
   const [form,    setForm]    = useState(EMPTY);
   const [loading, setLoading] = useState(false);
+  const [showPwd, setShowPwd] = useState(false);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -73,7 +75,25 @@ const SuperAdminCreateSchool = () => {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <Field label="Principal Name *"     name="principalName"     value={form.principalName}     onChange={handleChange} />
             <Field label="Principal Email *"    name="principalEmail"    value={form.principalEmail}    onChange={handleChange} type="email" />
-            <Field label="Principal Password *" name="principalPassword" value={form.principalPassword} onChange={handleChange} type="password" />
+            <div className="space-y-1">
+              <Label>Principal Password *</Label>
+              <div className="relative">
+                <Input
+                  type={showPwd ? "text" : "password"}
+                  name="principalPassword"
+                  value={form.principalPassword}
+                  onChange={handleChange}
+                  className="pr-10"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPwd((v) => !v)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                >
+                  {showPwd ? <EyeOff size={15} /> : <Eye size={15} />}
+                </button>
+              </div>
+            </div>
           </div>
         </CardContent>
       </Card>

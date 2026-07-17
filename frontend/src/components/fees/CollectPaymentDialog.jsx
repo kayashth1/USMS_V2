@@ -63,6 +63,7 @@ export default function CollectPaymentDialog({
   profile,
   installments,
   school,
+  studentName,
   onPaymentCreated,
 }) {
   const [amount,      setAmount]      = useState("");
@@ -161,7 +162,7 @@ export default function CollectPaymentDialog({
         <div className="space-y-4 text-sm max-h-[70vh] overflow-y-auto pr-1">
           {/* Student summary */}
           <div className="bg-gray-50 border rounded-md p-3 space-y-1">
-            <p className="font-medium text-gray-800">{profile.studentName || profile.studentId}</p>
+            <p className="font-medium text-gray-800">{studentName || profile.studentId}</p>
             <p className="text-gray-500 text-xs">{profile.classLabel} · {profile.academicYear} · {profile.schedule}</p>
             <div className="flex gap-4 pt-1 text-xs">
               <span>Total Outstanding: <strong className={outstanding > 0 ? "text-red-500" : ""}>{INR(outstanding)}</strong></span>

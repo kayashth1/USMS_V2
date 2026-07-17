@@ -838,7 +838,7 @@ export default function PromotionBatchDetails() {
               <span>{progress.completed + progress.failed} / {progress.total} processed</span>
               {progress.current && (
                 <span className="text-indigo-600">
-                  Processing: {studentMap[progress.current.studentId]?.name ?? progress.current.studentId}
+                  Processing: {studentMap[progress.current.studentId]?.fullName ?? studentMap[progress.current.studentId]?.name ?? progress.current.studentId}
                 </span>
               )}
             </div>
@@ -883,7 +883,7 @@ export default function PromotionBatchDetails() {
                     <StudentRow
                       key={sp.promotionId}
                       sp={sp}
-                      studentName={studentMap[sp.studentId]?.name ?? null}
+                      studentName={studentMap[sp.studentId]?.fullName ?? studentMap[sp.studentId]?.name ?? null}
                       onRetryOne={canRetry ? handleRetryOne : null}
                     />
                   ))}

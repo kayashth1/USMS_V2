@@ -101,7 +101,7 @@ const Dashboard = () => {
     { label: "Post Notice",     icon: Bell,          path: "/notices",    color: "bg-amber-50 text-amber-700 hover:bg-amber-100"   },
     { label: "Check Attendance", icon: ClipboardList, path: "/attendance", color: "bg-purple-50 text-purple-700 hover:bg-purple-100" },
     { label: "Class Timetable", icon: CalendarDays,  path: "/timetable",  color: "bg-indigo-50 text-indigo-700 hover:bg-indigo-100" },
-    { label: "Fee Management",  icon: Calendar,      path: "/fees",       color: "bg-rose-50 text-rose-700 hover:bg-rose-100"      },
+    { label: "Fee Management",  icon: Calendar,      path: "/fees-v2",    color: "bg-rose-50 text-rose-700 hover:bg-rose-100"      },
   ];
 
   return (

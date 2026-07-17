@@ -12,23 +12,21 @@ import { useSchoolPlan } from "@/hooks/useSchoolPlan";
 import PremiumModal from "@/components/common/PremiumModal";
 
 const menuItems = [
-  { title: "Dashboard",           path: "/dashboard",  icon: LayoutDashboard },
-  { title: "Notice Management",   path: "/notices",    icon: Bell },
-  { title: "Teacher Management",  path: "/teachers",   icon: Users },
-  { title: "Student Management",  path: "/students",   icon: GraduationCap },
-  { title: "Attendance",          path: "/attendance", icon: ClipboardList },
-  { title: "Academic Management", path: "/academics",  icon: BarChart3 },
-  { title: "Promotion",           path: "/promotion",  icon: ArrowUpCircle },
-  { title: "Year Rollover",       path: "/academic-rollover", icon: RefreshCcw },
-  { title: "Class Timetable",     path: "/timetable",  icon: CalendarDays },
-  { title: "Fee Management",      path: "/fees",       icon: Wallet },
-  { title: "Fee Management V2",   path: "/fees-v2",    icon: Wallet },
-  { title: "Alumni",              path: "/alumni",     icon: UserCheck },
-  { title: "Reports",             path: "/reports",    icon: BarChart3 },
-  { title: "Books & Content",     path: "/books",      icon: BookOpen },
-  { title: "Exam Management",     path: "/exams",      icon: FileText,  premium: true },
-  { title: "Vehicle Tracking",    path: "/vehicle",    icon: Bus,       premium: true },
-  { title: "Settings",            path: "/settings",   icon: Settings },
+  { title: "Dashboard",          path: "/dashboard",        icon: LayoutDashboard },
+  { title: "Notice Management",  path: "/notices",          icon: Bell },
+  { title: "Teacher Management", path: "/teachers",         icon: Users },
+  { title: "Student Management", path: "/students",         icon: GraduationCap },
+  { title: "Attendance",         path: "/attendance",       icon: ClipboardList },
+  { title: "Promotion",          path: "/promotion",        icon: ArrowUpCircle },
+  { title: "Year Rollover",      path: "/academic-rollover",icon: RefreshCcw },
+  { title: "Class Timetable",    path: "/timetable",        icon: CalendarDays },
+  { title: "Fee Management",     path: "/fees-v2",          icon: Wallet },
+  { title: "Alumni",             path: "/alumni",           icon: UserCheck },
+  { title: "Reports",            path: "/reports",          icon: BarChart3 },
+  { title: "Books & Content",    path: "/books",            icon: BookOpen },
+  { title: "Exam Management",    path: "/exams",            icon: FileText,  premium: true },
+  { title: "Vehicle Tracking",   path: "/vehicle",          icon: Bus,       premium: true },
+  { title: "Settings",           path: "/settings",         icon: Settings },
 ];
 
 const Sidebar = () => {

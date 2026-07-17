@@ -495,6 +495,7 @@ function FeeProfileDetail({
         profile={profile}
         installments={installments ?? []}
         school={school}
+        studentName={studentName}
         onPaymentCreated={handlePaymentCreated}
       />
 
@@ -649,7 +650,7 @@ const FeesV2 = () => {
       {/* ── Page header ── */}
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-semibold">Fee Management V2</h1>
+          <h1 className="text-2xl font-semibold">Fee Management</h1>
           <p className="text-gray-500 text-sm">Manage student fee profiles, installments, and payments</p>
         </div>
         <div className="flex items-center gap-2">

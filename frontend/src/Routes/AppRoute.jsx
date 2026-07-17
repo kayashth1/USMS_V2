@@ -17,9 +17,7 @@ import Teachers from "@/Pages/teachers/Teachers";
 import TeacherProfile from "@/Pages/teachers/TeacherProfile";
 import Students from "@/Pages/students/Students";
 import Attendance from "@/Pages/attendance/Attendance";
-import Academics from "@/Pages/academics/Academics";
 import Timetable from "@/Pages/timetable/Timetable";
-import Fees from "@/Pages/fees/Fees";
 import FeesV2 from "@/Pages/fees/FeesV2";
 import Alumni from "@/Pages/alumni/Alumni";
 import Books from "@/Pages/books/Books";
@@ -72,9 +70,7 @@ const AppRoutes = () => {
           <Route path="/students" element={<Students />} />
           <Route path="/students/:studentId" element={<StudentProfile/>} />
           <Route path="/attendance" element={<Attendance />} />
-          <Route path="/academics" element={<Academics />} />
           <Route path="/timetable" element={<Timetable />} />
-          <Route path="/fees" element={<Fees />} />
           <Route path="/fees-v2" element={<FeesV2 />} />
           <Route path="/alumni" element={<Alumni />} />
           <Route path="/books" element={<Books />} />

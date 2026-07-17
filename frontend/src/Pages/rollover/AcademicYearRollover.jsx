@@ -129,7 +129,7 @@ function StudentUpdatesTable({ updates, studentMap, classMap, spByStudentId }) {
             return (
               <tr key={su.studentId} className="hover:bg-gray-50">
                 <td className="px-4 py-2.5">
-                  <p className="font-medium text-gray-800">{student?.name ?? "Unknown"}</p>
+                  <p className="font-medium text-gray-800">{student?.fullName ?? student?.name ?? "Unknown"}</p>
                   <p className="text-xs text-gray-400 font-mono">{su.studentId}</p>
                 </td>
                 <td className="px-4 py-2.5 text-gray-600">
@@ -204,7 +204,7 @@ function FeeProfilesTable({ plan, studentMap }) {
             return (
               <tr key={studentId} className="hover:bg-gray-50">
                 <td className="px-4 py-2.5">
-                  <p className="font-medium text-gray-800">{student?.name ?? "Unknown"}</p>
+                  <p className="font-medium text-gray-800">{student?.fullName ?? student?.name ?? "Unknown"}</p>
                   <p className="text-xs text-gray-400 font-mono">{studentId}</p>
                 </td>
                 <td className="px-4 py-2.5">
@@ -267,7 +267,7 @@ function GraduationTable({ updates, studentMap, classMap }) {
             return (
               <tr key={gu.studentId} className="hover:bg-gray-50">
                 <td className="px-4 py-2.5">
-                  <p className="font-medium text-gray-800">{student?.name ?? "Unknown"}</p>
+                  <p className="font-medium text-gray-800">{student?.fullName ?? student?.name ?? "Unknown"}</p>
                   <p className="text-xs text-gray-400 font-mono">{gu.studentId}</p>
                 </td>
                 <td className="px-4 py-2.5 text-gray-600">
@@ -819,7 +819,7 @@ export default function AcademicYearRollover() {
                 {execProgress.currentStudentId && (
                   <p className="text-xs text-gray-500 text-center">
                     Processing: <span className="font-medium text-indigo-700">
-                      {studentMap[execProgress.currentStudentId]?.name ?? execProgress.currentStudentId}
+                      {studentMap[execProgress.currentStudentId]?.fullName ?? studentMap[execProgress.currentStudentId]?.name ?? execProgress.currentStudentId}
                     </span>
                   </p>
                 )}

@@ -13,6 +13,7 @@ import BulkDeleteConfirmDialog from "@/components/students/BulkDeleteConfirmDial
 
 import { deleteStudent, getStudentsBySchool } from "@/services/student.service";
 import { getClassesBySchool } from "@/services/class.service";
+import { useToast } from "@/components/ui/toast";
 
 import {
   Select,
@@ -27,6 +28,7 @@ import { Eye, Pencil, Trash2, GraduationCap } from "lucide-react";
 const Students = () => {
   const schoolId = localStorage.getItem("principalSchoolId");
   const navigate = useNavigate();
+  const { toast } = useToast();
 
   const [students, setStudents] = useState([]);
   const [classesMap, setClassesMap] = useState({});
@@ -145,7 +147,7 @@ const Students = () => {
       setBulkDeleteOpen(false);
       loadStudents();
     } catch (err) {
-      alert(err.message);
+      toast.error(err.message);
     } finally {
       setBulkDeleteLoading(false);
     }
@@ -320,7 +322,7 @@ const Students = () => {
             loadStudents();
             setDeleteOpen(false);
           } catch (err) {
-            alert(err.message);
+            toast.error(err.message);
           } finally {
             setDeleteLoading(false);
           }

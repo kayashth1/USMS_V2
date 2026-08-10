@@ -20,6 +20,8 @@ import {
   updateSchoolSubscription,
   deleteSchool,
 } from "@/services/superadmin.service";
+import { useToast } from "@/components/ui/toast";
+import { useConfirm } from "@/components/ui/confirm-dialog";
 
 const PLAN_STYLES = {
   free:    "bg-gray-100 text-gray-700",
@@ -29,6 +31,8 @@ const PLAN_STYLES = {
 const SuperAdminSchoolDetail = () => {
   const { schoolId } = useParams();
   const navigate = useNavigate();
+  const { toast } = useToast();
+  const confirm = useConfirm();
 
   const [school,    setSchool]    = useState(null);
   const [principal, setPrincipal] = useState(null);
@@ -86,9 +90,9 @@ const SuperAdminSchoolDetail = () => {
         isActive,
       });
       setSchool((s) => ({ ...s, plan, isActive }));
-      alert("Subscription updated.");
+      toast.success("Subscription updated.");
     } catch (err) {
-      alert(err.message);
+      toast.error(err.message);
     } finally {
       setSaving(false);
     }
@@ -110,16 +114,23 @@ const SuperAdminSchoolDetail = () => {
 
   const handleDelete = async () => {
     if (deleteInput !== school?.name) {
-      return alert("School name doesn't match. Deletion cancelled.");
+      toast.error("School name doesn't match. Deletion cancelled.");
+      return;
     }
-    if (!confirm("This will permanently delete ALL data for this school. Are you absolutely sure?")) return;
+    const ok = await confirm({
+      title: "Delete school permanently?",
+      description: "This will permanently delete ALL data for this school — students, teachers, fees, attendance. This cannot be undone.",
+      confirmLabel: "Delete Forever",
+      danger: true,
+    });
+    if (!ok) return;
 
     try {
       setDeleting(true);
       await deleteSchool(schoolId);
       navigate("/superadmin/schools");
     } catch (err) {
-      alert(err.message);
+      toast.error(err.message);
     } finally {
       setDeleting(false);
     }

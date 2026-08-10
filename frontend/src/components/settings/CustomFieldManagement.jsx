@@ -1,5 +1,7 @@
 import { useState } from "react";
 import { Pencil, Trash2, Plus, Check, X, GraduationCap, Users, Lock } from "lucide-react";
+import { useToast } from "@/components/ui/toast";
+import { useConfirm } from "@/components/ui/confirm-dialog";
 
 import { Card, CardContent } from "@/components/ui/card";
 import { InlineLoader } from "@/components/ui/spinner";
@@ -30,6 +32,8 @@ const DEFAULT_FIELDS = {
 // Reusable section for one entity's fields
 const FieldSection = ({ schoolId, entity, icon: Icon, title, color }) => {
   const { defs, loading, refresh } = useCustomFieldDefs(schoolId, entity);
+  const { toast } = useToast();
+  const confirm = useConfirm();
 
   const [newField,   setNewField]   = useState(EMPTY_NEW);
   const [adding,     setAdding]     = useState(false);
@@ -37,14 +41,14 @@ const FieldSection = ({ schoolId, entity, icon: Icon, title, color }) => {
   const [editForm,   setEditForm]   = useState({ label: "", required: false });
 
   const handleAdd = async () => {
-    if (!newField.label.trim()) return alert("Field label is required");
+    if (!newField.label.trim()) { toast.error("Field label is required"); return; }
     try {
       setAdding(true);
       await createCustomFieldDef(schoolId, entity, newField);
       setNewField(EMPTY_NEW);
       refresh();
     } catch (err) {
-      alert(err.message);
+      toast.error(err.message);
     } finally {
       setAdding(false);
     }
@@ -56,23 +60,29 @@ const FieldSection = ({ schoolId, entity, icon: Icon, title, color }) => {
   };
 
   const handleEditSave = async (id) => {
-    if (!editForm.label.trim()) return alert("Field label is required");
+    if (!editForm.label.trim()) { toast.error("Field label is required"); return; }
     try {
       await updateCustomFieldDef(id, { label: editForm.label.trim(), required: editForm.required });
       setEditingId(null);
       refresh();
     } catch (err) {
-      alert(err.message);
+      toast.error(err.message);
     }
   };
 
   const handleDelete = async (field) => {
-    if (!confirm(`Delete field "${field.label}"? Existing data will be preserved but the field won't appear in forms.`)) return;
+    const ok = await confirm({
+      title: `Delete field "${field.label}"?`,
+      description: "Existing data will be preserved but the field won't appear in forms.",
+      confirmLabel: "Delete",
+      danger: true,
+    });
+    if (!ok) return;
     try {
       await deleteCustomFieldDef(field.id);
       refresh();
     } catch (err) {
-      alert(err.message);
+      toast.error(err.message);
     }
   };
 

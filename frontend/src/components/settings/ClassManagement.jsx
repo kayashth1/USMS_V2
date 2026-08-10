@@ -5,9 +5,13 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
+import { useToast } from "@/components/ui/toast";
+import { useConfirm } from "@/components/ui/confirm-dialog";
 
 const ClassManagement = ({ classes, onReload }) => {
   const schoolId = localStorage.getItem("principalSchoolId");
+  const { toast } = useToast();
+  const confirm = useConfirm();
 
   const [grade,   setGrade]   = useState("");
   const [section, setSection] = useState("");
@@ -21,19 +25,25 @@ const ClassManagement = ({ classes, onReload }) => {
       setSection("");
       onReload();
     } catch (err) {
-      alert(err.message);
+      toast.error(err.message);
     } finally {
       setLoading(false);
     }
   };
 
   const handleDelete = async (cls) => {
-    if (!confirm(`Delete class ${cls.id} permanently?\nThis cannot be undone.`)) return;
+    const ok = await confirm({
+      title: `Delete class ${cls.id}?`,
+      description: "This cannot be undone.",
+      confirmLabel: "Delete",
+      danger: true,
+    });
+    if (!ok) return;
     try {
       await deleteClass({ classDocId: cls.docId, classId: cls.id, schoolId });
       onReload();
     } catch (err) {
-      alert(err.message);
+      toast.error(err.message);
     }
   };
 

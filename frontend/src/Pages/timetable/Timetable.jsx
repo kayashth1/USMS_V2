@@ -19,12 +19,14 @@ import {
   getClassTimetable,
   saveClassTimetable,
 } from "@/services/classTimetable.service";
+import { useToast } from "@/components/ui/toast";
 
 const DAYS = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday"];
 const DAY_LABELS = { monday: "Mon", tuesday: "Tue", wednesday: "Wed", thursday: "Thu", friday: "Fri", saturday: "Sat" };
 
 const Timetable = () => {
   const schoolId = localStorage.getItem("principalSchoolId");
+  const { toast } = useToast();
 
   const [classes,   setClasses]   = useState([]);
   const [periods,   setPeriods]   = useState([]);
@@ -139,7 +141,7 @@ const Timetable = () => {
     try {
       await saveClassTimetable({ classDocId: selectedClassId, schoolId, week: newWeek, className });
     } catch (err) {
-      alert("Failed to save timetable: " + err.message);
+      toast.error("Failed to save timetable: " + err.message);
     } finally {
       setSaving(false);
     }

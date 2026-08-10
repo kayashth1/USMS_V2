@@ -19,18 +19,22 @@ import {
   SelectItem,
 } from "@/components/ui/select";
 
-import { updateStudent } from "@/services/student.service";
+import { updateStudent, changeStudentPassword } from "@/services/student.service";
+import { useToast } from "@/components/ui/toast";
 import { getClassesBySchool } from "@/services/class.service";
 import { useCustomFieldDefs } from "@/hooks/useCustomFieldDefs";
 import CustomFieldsForm from "@/components/common/CustomFieldsForm";
 
 const EditStudentDialog = ({ open, onOpenChange, student, onSuccess }) => {
   const schoolId = localStorage.getItem("principalSchoolId");
+  const { toast } = useToast();
 
   const [loading,      setLoading]      = useState(false);
   const [classes,      setClasses]      = useState([]);
   const [form,         setForm]         = useState(null);
   const [customValues, setCustomValues] = useState({});
+  const [newPwd,       setNewPwd]       = useState("");
+  const [pwdLoading,   setPwdLoading]   = useState(false);
 
   const { defs: customDefs } = useCustomFieldDefs(schoolId, "student");
 
@@ -101,9 +105,23 @@ const EditStudentDialog = ({ open, onOpenChange, student, onSuccess }) => {
       onOpenChange(false);
       onSuccess?.();
     } catch (err) {
-      alert(err.message || "Failed to update student");
+      toast.error(err.message || "Failed to update student");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleChangePassword = async () => {
+    if (newPwd.length < 6) { toast.error("Password must be at least 6 characters"); return; }
+    try {
+      setPwdLoading(true);
+      await changeStudentPassword(student.id, newPwd);
+      setNewPwd("");
+      toast.success("Password updated successfully");
+    } catch (err) {
+      toast.error(err.message);
+    } finally {
+      setPwdLoading(false);
     }
   };
 
@@ -191,6 +209,27 @@ const EditStudentDialog = ({ open, onOpenChange, student, onSuccess }) => {
             <p className="text-xs text-gray-500">
               Email cannot be changed (login credential)
             </p>
+          </div>
+
+          {/* Change Password */}
+          <div className="border-t pt-4 space-y-2">
+            <label className="text-sm font-medium">Change Password</label>
+            <div className="flex gap-2">
+              <Input
+                type="password"
+                placeholder="New password (min 6 chars)"
+                value={newPwd}
+                onChange={(e) => setNewPwd(e.target.value)}
+              />
+              <Button
+                type="button"
+                variant="outline"
+                onClick={handleChangePassword}
+                disabled={pwdLoading || newPwd.length < 6}
+              >
+                {pwdLoading ? "Saving…" : "Update"}
+              </Button>
+            </div>
           </div>
         </div>
 

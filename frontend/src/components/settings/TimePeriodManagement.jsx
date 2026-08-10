@@ -3,6 +3,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
 import { InlineLoader } from "@/components/ui/spinner";
+import { useToast } from "@/components/ui/toast";
+import { useConfirm } from "@/components/ui/confirm-dialog";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from "@/components/ui/dialog";
@@ -18,6 +20,8 @@ const EMPTY_FORM = { name: "", from: "", to: "", order: "" };
 
 const TimePeriodManagement = () => {
   const schoolId = localStorage.getItem("principalSchoolId");
+  const { toast } = useToast();
+  const confirm = useConfirm();
 
   const [periods, setPeriods]   = useState([]);
   const [loading, setLoading]   = useState(true);
@@ -48,7 +52,14 @@ const TimePeriodManagement = () => {
 
   const handleSave = async () => {
     if (!form.name || !form.from || !form.to) {
-      alert("Name, From and To are required");
+      toast.error("Name, From and To are required");
+      return;
+    }
+    if (form.to <= form.from) {
+      toast.error(
+        "End time must be after start time. If this is an afternoon period, " +
+        "double-check you picked PM and not AM in the time picker."
+      );
       return;
     }
     setSaving(true);
@@ -57,12 +68,13 @@ const TimePeriodManagement = () => {
       else            await addTimePeriod({ ...form, schoolId });
       setDialogOpen(false);
       load();
-    } catch (e) { alert(e.message); }
+    } catch (e) { toast.error(e.message); }
     finally { setSaving(false); }
   };
 
   const handleDelete = async (id) => {
-    if (!confirm("Delete this time period?")) return;
+    const ok = await confirm("Delete this time period?");
+    if (!ok) return;
     await deleteTimePeriod(id);
     load();
   };

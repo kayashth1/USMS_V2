@@ -59,6 +59,15 @@ export const assignTeacher = async ({
     throw new Error("Missing required assignment fields");
   }
 
+  const existing = await getDocs(query(
+    collection(db, "teacherClassSubjects"),
+    where("teacherId",  "==", teacherId),
+    where("classId",    "==", classId),
+    where("subjectId",  "==", subjectId),
+    where("schoolId",   "==", schoolId)
+  ));
+  if (!existing.empty) return;
+
   await addDoc(collection(db, "teacherClassSubjects"), {
     teacherId,
     classId,

@@ -16,10 +16,12 @@ import { getClassesBySchool } from "@/services/class.service";
 import { useCustomFieldDefs } from "@/hooks/useCustomFieldDefs";
 import CustomFieldsForm from "@/components/common/CustomFieldsForm";
 import {
-  getFixedFeeStructures, getVariableFeeStructures,
-  createStudentFeeProfile,
-} from "@/services/fees.service";
+  getActiveAcademicYear,
+  getFixedFeeStructuresForClass, getVariableFeeStructuresOrdered,
+  createDraftProfile, updateDraftProfile, activateProfile,
+} from "@/fees-v2";
 import { useSchoolSettings } from "@/hooks/useSchoolSettings";
+import { useToast } from "@/components/ui/toast";
 
 const EMPTY_FORM = {
   fullName: "", email: "", password: "", roll: "",
@@ -28,6 +30,7 @@ const EMPTY_FORM = {
 
 const AddStudentDialog = ({ open, onOpenChange, onSuccess }) => {
   const schoolId = localStorage.getItem("principalSchoolId");
+  const { toast } = useToast();
 
   const [loading,       setLoading]       = useState(false);
   const [showPwd,       setShowPwd]       = useState(false);
@@ -37,41 +40,44 @@ const AddStudentDialog = ({ open, onOpenChange, onSuccess }) => {
 
   const { defs: customDefs } = useCustomFieldDefs(schoolId, "student");
 
-  const { academicYear: feeAcademicYear, feeSchedule, holidayMonths } = useSchoolSettings(schoolId);
+  // feeSchedule is still a real school-level default; the academic year
+  // must come from the fees-v2 academicYears collection (the id, not just
+  // the display string) since that's what createDraftProfile requires.
+  const { feeSchedule } = useSchoolSettings(schoolId);
+  const [activeYear, setActiveYear] = useState(null);
 
   // Fee-related state
   const [fixedFees,     setFixedFees]     = useState([]);
   const [variableFees,  setVariableFees]  = useState([]);
-  const [selectedFixed, setSelectedFixed] = useState(new Set());
   const [selectedVars,  setSelectedVars]  = useState(new Set());
 
-  /* Load classes + variable fees when dialog opens */
+  /* Load classes + variable fees + active year when dialog opens */
   useEffect(() => {
     if (!schoolId || !open) return;
     const load = async () => {
-      const [cls, variable] = await Promise.all([
+      const [cls, variable, year] = await Promise.all([
         getClassesBySchool(schoolId),
-        getVariableFeeStructures(schoolId),
+        getVariableFeeStructuresOrdered(schoolId),
+        getActiveAcademicYear(schoolId).catch(() => null),
       ]);
       setClasses(cls.filter((c) => c.isActive));
       setVariableFees(variable);
+      setActiveYear(year);
     };
     load();
     setForm(EMPTY_FORM);
     setCustomValues({});
-    setSelectedFixed(new Set());
     setSelectedVars(new Set());
     setFixedFees([]);
   }, [schoolId, open]);
 
-  /* When class changes, load fixed fees for that class — pre-select all */
+  /* When class changes, load fixed fees for that class.
+   * Fixed fees are not individually optional in the real fee pipeline —
+   * createDraftProfile() always snapshots every active fixed structure for
+   * the class, so they're shown here as informational, not as checkboxes. */
   useEffect(() => {
-    if (!form.classId || !schoolId) { setFixedFees([]); setSelectedFixed(new Set()); return; }
-    getFixedFeeStructures(schoolId).then((fees) => {
-      const classFixed = fees.filter((f) => f.classId === form.classId);
-      setFixedFees(classFixed);
-      setSelectedFixed(new Set(classFixed.map((f) => f.id)));
-    });
+    if (!form.classId || !schoolId) { setFixedFees([]); return; }
+    getFixedFeeStructuresForClass(schoolId, form.classId).then(setFixedFees);
   }, [form.classId, schoolId]);
 
   const handleChange = (e) => {
@@ -87,10 +93,10 @@ const AddStudentDialog = ({ open, onOpenChange, onSuccess }) => {
   };
 
   const totalPerCycle = useMemo(() => {
-    const fixedRecurring = fixedFees.filter((f) => selectedFixed.has(f.id) && !f.isOneTime).reduce((s, f) => s + f.amount, 0);
+    const fixedRecurring = fixedFees.filter((f) => !f.isOneTime).reduce((s, f) => s + f.amount, 0);
     const varRecurring   = variableFees.filter((v) => selectedVars.has(v.id) && !v.isOneTime).reduce((s, v) => s + v.amount, 0);
     return fixedRecurring + varRecurring;
-  }, [fixedFees, selectedFixed, variableFees, selectedVars]);
+  }, [fixedFees, variableFees, selectedVars]);
 
   const cycleLabel = "mo";
   const hasFeeStructure = fixedFees.length > 0 || variableFees.length > 0;
@@ -120,36 +126,39 @@ const AddStudentDialog = ({ open, onOpenChange, onSuccess }) => {
         customFields: customValues,
       });
 
-      // Create fee profile if fee structures are defined
+      // Create a fee profile through the real Fees V2 pipeline — this used
+      // to call the old fees.service.js, which wrote to a completely
+      // different collection (studentFeeYears) that the actual Fees V2
+      // admin screen never reads, silently orphaning every new student's
+      // fee data. createDraftProfile() always loads every active fixed fee
+      // structure for the class itself (that's not caller-selectable in
+      // this pipeline); only variable add-ons are a choice here.
       const studentId = result?.uid;
-      if (studentId && (selectedFixed.size > 0 || selectedVars.size > 0)) {
-        const items = [];
-        for (const f of fixedFees.filter((f) => selectedFixed.has(f.id))) {
-          items.push({ structureId: f.id, label: f.label, amount: f.amount, type: "fixed", isOneTime: f.isOneTime || false, chargedDuringHolidays: f.chargedDuringHolidays ?? true });
+      if (studentId && fixedFees.length > 0) {
+        if (!activeYear?.id) {
+          throw new Error(
+            "Student was created, but no active academic year is configured — " +
+            "set one up in Fees V2, then create this student's fee profile manually."
+          );
         }
-        for (const id of selectedVars) {
-          const v = variableFees.find((x) => x.id === id);
-          if (v) items.push({ structureId: v.id, label: v.label, amount: v.amount, type: "variable", isOneTime: v.isOneTime || false, chargedDuringHolidays: v.chargedDuringHolidays ?? true });
+        const profileId = await createDraftProfile({
+          studentId,
+          academicYearId: activeYear.id,
+          schoolId,
+          classId:    form.classId,
+          classLabel: form.classLabel,
+          schedule:   feeSchedule,
+        });
+        if (selectedVars.size > 0) {
+          await updateDraftProfile(profileId, { variableFeeIds: [...selectedVars] });
         }
-        if (items.length > 0) {
-          await createStudentFeeProfile({
-            studentId,
-            studentName: form.fullName,
-            classId:     form.classId,
-            classLabel:  form.classLabel,
-            schoolId,
-            academicYear: feeAcademicYear,
-            schedule:     feeSchedule,
-            items,
-            holidayMonths,
-          });
-        }
+        await activateProfile(profileId);
       }
 
       onOpenChange(false);
       onSuccess?.();
     } catch (err) {
-      alert(err.message);
+      toast.error(err.message);
     } finally {
       setLoading(false);
     }
@@ -210,31 +219,31 @@ const AddStudentDialog = ({ open, onOpenChange, onSuccess }) => {
           {form.classId && hasFeeStructure && (
             <div className="border rounded-md p-4 space-y-3 bg-indigo-50/40">
               <p className="text-sm font-medium text-indigo-700">
-                Fee Setup — {feeSchedule} · {feeAcademicYear}
+                Fee Setup — {feeSchedule}{activeYear ? ` · ${activeYear.year}` : ""}
               </p>
+              {!activeYear && (
+                <p className="text-xs text-amber-600">
+                  No active academic year configured — the fee profile can't be created until one is set up in Fees V2.
+                </p>
+              )}
 
               {fixedFees.length === 0 ? (
                 <p className="text-xs text-amber-600">No fixed fee defined for this class.</p>
               ) : (
-                fixedFees.map((f) => (
-                  <div key={f.id} className="flex items-center gap-3 bg-white rounded-md p-2.5 border">
-                    <Checkbox
-                      checked={selectedFixed.has(f.id)}
-                      onCheckedChange={(checked) => setSelectedFixed((prev) => {
-                        const next = new Set(prev);
-                        checked ? next.add(f.id) : next.delete(f.id);
-                        return next;
-                      })}
-                    />
-                    <span className="text-sm flex-1">{f.label}</span>
-                    {f.isOneTime && (
-                      <span className="text-xs bg-purple-100 text-purple-700 rounded px-1.5 py-0.5">One-time</span>
-                    )}
-                    <span className="text-sm font-medium">
-                      ₹{f.amount?.toLocaleString()}{f.isOneTime ? "" : `/${cycleLabel}`}
-                    </span>
-                  </div>
-                ))
+                <>
+                  <p className="text-xs text-gray-500">Charged automatically for this class:</p>
+                  {fixedFees.map((f) => (
+                    <div key={f.id} className="flex items-center gap-3 bg-white rounded-md p-2.5 border">
+                      <span className="text-sm flex-1">{f.label}</span>
+                      {f.isOneTime && (
+                        <span className="text-xs bg-purple-100 text-purple-700 rounded px-1.5 py-0.5">One-time</span>
+                      )}
+                      <span className="text-sm font-medium">
+                        ₹{f.amount?.toLocaleString()}{f.isOneTime ? "" : `/${cycleLabel}`}
+                      </span>
+                    </div>
+                  ))}
+                </>
               )}
 
               {variableFees.length > 0 && (
@@ -263,7 +272,7 @@ const AddStudentDialog = ({ open, onOpenChange, onSuccess }) => {
               )}
 
               {(() => {
-                const fixedOneTime = fixedFees.filter((f) => selectedFixed.has(f.id) && f.isOneTime).reduce((s, f) => s + f.amount, 0);
+                const fixedOneTime = fixedFees.filter((f) => f.isOneTime).reduce((s, f) => s + f.amount, 0);
                 const varOneTime   = variableFees.filter((v) => selectedVars.has(v.id) && v.isOneTime).reduce((s, v) => s + v.amount, 0);
                 const oneTimeTotal = fixedOneTime + varOneTime;
                 return (

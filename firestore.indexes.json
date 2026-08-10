@@ -122,6 +122,25 @@
       ]
     },
     {
+      "collectionGroup": "feeStructures",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "schoolId",      "order": "ASCENDING" },
+        { "fieldPath": "classId",       "order": "ASCENDING" },
+        { "fieldPath": "type",          "order": "ASCENDING" },
+        { "fieldPath": "isActive",      "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "feeStructures",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "schoolId",      "order": "ASCENDING" },
+        { "fieldPath": "type",          "order": "ASCENDING" },
+        { "fieldPath": "isActive",      "order": "ASCENDING" }
+      ]
+    },
+    {
       "collectionGroup": "promotionBatches",
       "queryScope": "COLLECTION",
       "fields": [
@@ -135,6 +154,202 @@
       "fields": [
         { "fieldPath": "batchId",       "order": "ASCENDING" },
         { "fieldPath": "studentId",     "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "studentPromotions",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "schoolId",          "order": "ASCENDING" },
+        { "fieldPath": "fromAcademicYear",  "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "promotionBatches",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "schoolId",          "order": "ASCENDING" },
+        { "fieldPath": "fromAcademicYear",  "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "promotionBatches",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "schoolId",  "order": "ASCENDING" },
+        { "fieldPath": "status",    "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "promotionBatches",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "schoolId",       "order": "ASCENDING" },
+        { "fieldPath": "promotionType",  "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "feePayments",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "schoolId",      "order": "ASCENDING" },
+        { "fieldPath": "academicYear",  "order": "ASCENDING" },
+        { "fieldPath": "status",        "order": "ASCENDING" },
+        { "fieldPath": "paymentDate",   "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "feeInstallments",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "schoolId",      "order": "ASCENDING" },
+        { "fieldPath": "academicYear",  "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "feeRevisions",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "schoolId",      "order": "ASCENDING" },
+        { "fieldPath": "academicYear",  "order": "ASCENDING" },
+        { "fieldPath": "status",        "order": "ASCENDING" }
+      ]
+    },
+
+    {
+      "collectionGroup": "libraryResources",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "isActive",   "order": "ASCENDING" },
+        { "fieldPath": "createdAt",  "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "libraryResources",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "isActive",   "order": "ASCENDING" },
+        { "fieldPath": "subject",    "order": "ASCENDING" },
+        { "fieldPath": "createdAt",  "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "libraryResources",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "isActive",   "order": "ASCENDING" },
+        { "fieldPath": "board",      "order": "ASCENDING" },
+        { "fieldPath": "createdAt",  "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "libraryResources",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "isActive",   "order": "ASCENDING" },
+        { "fieldPath": "fileType",   "order": "ASCENDING" },
+        { "fieldPath": "createdAt",  "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "libraryResources",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "isActive",    "order": "ASCENDING" },
+        { "fieldPath": "visibility",  "order": "ASCENDING" },
+        { "fieldPath": "createdAt",   "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "libraryCollections",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "isActive",   "order": "ASCENDING" },
+        { "fieldPath": "createdAt",  "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "libraryCollections",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "isActive",   "order": "ASCENDING" },
+        { "fieldPath": "subject",    "order": "ASCENDING" },
+        { "fieldPath": "createdAt",  "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "schoolResourceAssignments",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "schoolId",    "order": "ASCENDING" },
+        { "fieldPath": "assignedAt",  "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "schoolCollectionAssignments",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "schoolId",    "order": "ASCENDING" },
+        { "fieldPath": "assignedAt",  "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "classResourceAssignments",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "schoolId",    "order": "ASCENDING" },
+        { "fieldPath": "classId",     "order": "ASCENDING" },
+        { "fieldPath": "assignedAt",  "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "students",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "classId",  "order": "ASCENDING" },
+        { "fieldPath": "roll",     "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "study_materials",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "classId",   "order": "ASCENDING" },
+        { "fieldPath": "subject",   "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "study_materials",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "classId",   "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "notices",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "schoolId",  "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "teachers_instructions",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "senderId",  "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "teachers_instructions",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "targetClass", "order": "ASCENDING" },
+        { "fieldPath": "schoolId",    "order": "ASCENDING" },
+        { "fieldPath": "createdAt",   "order": "DESCENDING" }
       ]
     }
   ],

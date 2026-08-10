@@ -17,6 +17,7 @@ const ClassSubjectManagement = ({ subjects, classes }) => {
   const [assigned,       setAssigned]       = useState([]);
   const [selectedClass,  setSelectedClass]  = useState("");
   const [selectedSubject,setSelectedSubject]= useState("");
+  const [adding,         setAdding]         = useState(false);
 
   useEffect(() => {
     if (!selectedClass) return;
@@ -24,9 +25,15 @@ const ClassSubjectManagement = ({ subjects, classes }) => {
   }, [selectedClass, schoolId]);
 
   const handleAdd = async () => {
-    await addSubjectToClass({ classId: selectedClass, subjectId: selectedSubject, schoolId });
-    setSelectedSubject("");
-    setAssigned(await getClassSubjects(selectedClass, schoolId));
+    if (adding) return;
+    setAdding(true);
+    try {
+      await addSubjectToClass({ classId: selectedClass, subjectId: selectedSubject, schoolId });
+      setSelectedSubject("");
+      setAssigned(await getClassSubjects(selectedClass, schoolId));
+    } finally {
+      setAdding(false);
+    }
   };
 
   const handleRemove = async (cs) => {
@@ -74,7 +81,9 @@ const ClassSubjectManagement = ({ subjects, classes }) => {
                 ))}
               </SelectContent>
             </Select>
-            <Button onClick={handleAdd} disabled={!selectedSubject}>Add</Button>
+            <Button onClick={handleAdd} disabled={!selectedSubject || adding}>
+              {adding ? "Adding…" : "Add"}
+            </Button>
           </div>
         )}
 

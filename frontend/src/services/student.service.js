@@ -110,6 +110,21 @@ export const graduateStudents = async ({
   );
 };
 
+/* ================= CHANGE STUDENT PASSWORD ================= */
+export const changeStudentPassword = async (studentId, newPassword) => {
+  const res = await fetch(
+    "https://us-central1-usms-v2.cloudfunctions.net/changeStudentPassword",
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ studentId, newPassword }),
+    }
+  );
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || "Failed to change password");
+  return data;
+};
+
 /* ================= DELETE STUDENT ================= */
 export const deleteStudent = async (studentId) => {
   const res = await fetch(

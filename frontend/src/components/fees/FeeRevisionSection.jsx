@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { Eye, Plus } from "lucide-react";
+import { useConfirm } from "@/components/ui/confirm-dialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { InlineLoader } from "@/components/ui/spinner";
@@ -51,6 +52,7 @@ export const REVISION_TYPE_LABELS = {
  * @param {{ profile, installments, feeStructures, onRevisionApplied }} props
  */
 export default function FeeRevisionSection({ profile, installments, feeStructures, onRevisionApplied }) {
+  const confirm = useConfirm();
   const [revisions,        setRevisions]        = useState([]);
   const [loading,          setLoading]          = useState(false);
   const [error,            setError]            = useState(null);
@@ -94,8 +96,14 @@ export default function FeeRevisionSection({ profile, installments, feeStructure
   const handleApprove = (rev) =>
     runAction(rev.revisionId, () => approveRevision(rev.revisionId, adminId));
 
-  const handleCancel = (rev) => {
-    if (!confirm("Cancel this revision? This cannot be undone.")) return;
+  const handleCancel = async (rev) => {
+    const ok = await confirm({
+      title: "Cancel this revision?",
+      description: "This cannot be undone.",
+      confirmLabel: "Cancel Revision",
+      danger: true,
+    });
+    if (!ok) return;
     runAction(rev.revisionId, () => cancelRevision(rev.revisionId, adminId, "Cancelled by admin"));
   };
 

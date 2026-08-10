@@ -472,6 +472,27 @@ export const deleteSchool = onRequest(async (req, res) => {
   }
 });
 
+export const changeStudentPassword = onRequest(async (req, res) => {
+  res.set("Access-Control-Allow-Origin", "*");
+  res.set("Access-Control-Allow-Methods", "POST, OPTIONS");
+  res.set("Access-Control-Allow-Headers", "Content-Type");
+  if (req.method === "OPTIONS") return res.status(204).send("");
+
+  try {
+    const { studentId, newPassword } = req.body;
+    if (!studentId || !newPassword)
+      return res.status(400).json({ error: "studentId and newPassword are required" });
+    if (newPassword.length < 6)
+      return res.status(400).json({ error: "Password must be at least 6 characters" });
+
+    await admin.auth().updateUser(studentId, { password: newPassword });
+    return res.json({ success: true });
+  } catch (error) {
+    console.error("Change student password error:", error);
+    return res.status(500).json({ error: error.message });
+  }
+});
+
 export const changeTeacherPassword = onRequest(async (req, res) => {
   res.set("Access-Control-Allow-Origin", "*");
   res.set("Access-Control-Allow-Methods", "POST, OPTIONS");

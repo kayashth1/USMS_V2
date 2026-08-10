@@ -13,10 +13,12 @@ import { Label } from "@/components/ui/label";
 
 import { Eye, EyeOff } from "lucide-react";
 import { createTeacher } from "@/services/teacher.service";
+import { useToast } from "@/components/ui/toast";
 import { useCustomFieldDefs } from "@/hooks/useCustomFieldDefs";
 import CustomFieldsForm from "@/components/common/CustomFieldsForm";
 
 const AddTeacherDialog = ({ open, onOpenChange, onSuccess }) => {
+  const { toast } = useToast();
   const [loading,      setLoading]      = useState(false);
   const [customValues, setCustomValues] = useState({});
   const [showPwd,      setShowPwd]      = useState(false);
@@ -81,7 +83,7 @@ const AddTeacherDialog = ({ open, onOpenChange, onSuccess }) => {
       onSuccess?.();
     } catch (error) {
       console.error("Create teacher error:", error);
-      alert(error.message);
+      toast.error(error.message);
     } finally {
       setLoading(false);
     }

@@ -4,6 +4,7 @@ import { db } from "@/config/firebase";
 import { generatePeriods, formatPeriod, currentAcademicYear } from "@/services/fees.service";
 import { invalidateSchoolSettingsCache } from "@/hooks/useSchoolSettings";
 import { Input } from "@/components/ui/input";
+import { useToast } from "@/components/ui/toast";
 
 import { Card, CardContent } from "@/components/ui/card";
 import { PageLoader } from "@/components/ui/spinner";
@@ -20,9 +21,11 @@ import ClassSubjectManagement from "@/components/settings/ClassSubjectManagement
 import TeacherAssignment      from "@/components/settings/TeacherAssignment";
 import TimePeriodManagement   from "@/components/settings/TimePeriodManagement";
 import CustomFieldManagement  from "@/components/settings/CustomFieldManagement";
+import AttendanceSettings     from "@/components/settings/AttendanceSettings";
 
 const Settings = () => {
   const schoolId = localStorage.getItem("principalSchoolId");
+  const { toast } = useToast();
 
   const [school,           setSchool]           = useState(null);
   const [loading,          setLoading]          = useState(true);
@@ -47,7 +50,14 @@ const Settings = () => {
         if (snap.exists()) {
           const d = snap.data();
           setSchool(d);
-          setHolidayMonths(d.holidayMonths || []);
+          // Normalize to 1-indexed integers; old saves used period strings like "2026-05"
+          setHolidayMonths(
+            (d.holidayMonths || []).map((m) => {
+              if (typeof m === "number") return m;
+              const parts = String(m).split("-");
+              return Number(parts[parts.length - 1]);
+            }).filter(Boolean)
+          );
           if (d.feeAcademicYear) setFeeAcademicYear(d.feeAcademicYear);
         }
       } catch (err) {
@@ -66,9 +76,9 @@ const Settings = () => {
     try {
       setSavingHoliday(true);
       await updateDoc(doc(db, "schools", schoolId), { holidayMonths });
-      alert("Holiday months saved");
+      toast.success("Holiday months saved");
     } catch (err) {
-      alert("Failed to save");
+      toast.error("Failed to save");
     } finally {
       setSavingHoliday(false);
     }
@@ -77,16 +87,16 @@ const Settings = () => {
   const handleSaveAcademicYear = async () => {
     const trimmed = feeAcademicYear.trim();
     if (!/^\d{4}-\d{2}$/.test(trimmed)) {
-      alert('Format must be YYYY-YY, e.g. "2025-26"');
+      toast.error('Format must be YYYY-YY, e.g. "2025-26"');
       return;
     }
     try {
       setSaving(true);
       await updateDoc(doc(db, "schools", schoolId), { feeAcademicYear: trimmed });
       invalidateSchoolSettingsCache();
-      alert(`Academic year updated to ${trimmed}. This now applies across fees, promotions, and student creation.`);
+      toast.success(`Academic year updated to ${trimmed}.`);
     } catch (err) {
-      alert("Failed to save");
+      toast.error("Failed to save");
     } finally {
       setSaving(false);
     }
@@ -111,6 +121,7 @@ const Settings = () => {
           <TabsTrigger value="time_periods">Time Periods</TabsTrigger>
           <TabsTrigger value="custom_fields">Custom Fields</TabsTrigger>
           <TabsTrigger value="holidays">Holiday Months</TabsTrigger>
+          <TabsTrigger value="attendance">Attendance</TabsTrigger>
           {import.meta.env.DEV && <TabsTrigger value="dev_seed">Dev: Seed Data</TabsTrigger>}
         </TabsList>
 
@@ -227,6 +238,11 @@ const Settings = () => {
           />
         </TabsContent>
 
+        {/* ── Attendance Settings ── */}
+        <TabsContent value="attendance">
+          <AttendanceSettings schoolId={schoolId} />
+        </TabsContent>
+
         {import.meta.env.DEV && (
           <TabsContent value="dev_seed">
             <SeedTab schoolId={schoolId} classes={classes} />
@@ -242,8 +258,8 @@ const HolidayMonthsTab = ({ holidayMonths, setHolidayMonths, onSave, saving }) =
   const academicYear = currentAcademicYear();
   const periods = generatePeriods("monthly", academicYear);
 
-  const toggle = (period) => setHolidayMonths((prev) =>
-    prev.includes(period) ? prev.filter((p) => p !== period) : [...prev, period]
+  const toggleMonth = (monthNum) => setHolidayMonths((prev) =>
+    prev.includes(monthNum) ? prev.filter((m) => m !== monthNum) : [...prev, monthNum]
   );
 
   return (
@@ -258,12 +274,13 @@ const HolidayMonthsTab = ({ holidayMonths, setHolidayMonths, onSave, saving }) =
         <p className="text-xs text-gray-400">Academic Year: {academicYear}</p>
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
           {periods.map((period) => {
-            const isHoliday = holidayMonths.includes(period);
+            const monthNum  = Number(period.split("-")[1]);
+            const isHoliday = holidayMonths.includes(monthNum);
             return (
               <button
                 key={period}
                 type="button"
-                onClick={() => toggle(period)}
+                onClick={() => toggleMonth(monthNum)}
                 className={`flex items-center gap-2 border rounded-lg px-3 py-2 text-sm transition-colors text-left ${
                   isHoliday
                     ? "border-amber-400 bg-amber-50 text-amber-800 font-medium"

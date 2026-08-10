@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useToast } from "@/components/ui/toast";
 
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -15,6 +16,7 @@ const EMPTY = {
 
 const SuperAdminCreateSchool = () => {
   const navigate = useNavigate();
+  const { toast } = useToast();
   const [form,    setForm]    = useState(EMPTY);
   const [loading, setLoading] = useState(false);
   const [showPwd, setShowPwd] = useState(false);
@@ -27,7 +29,8 @@ const SuperAdminCreateSchool = () => {
   const handleSubmit = async () => {
     const { schoolName, principalName, principalEmail, principalPassword } = form;
     if (!schoolName || !principalName || !principalEmail || !principalPassword) {
-      return alert("School name, principal name, email and password are required.");
+      toast.error("School name, principal name, email and password are required.");
+      return;
     }
 
     try {
@@ -35,7 +38,7 @@ const SuperAdminCreateSchool = () => {
       await createSchool(form);
       navigate("/superadmin/schools");
     } catch (err) {
-      alert(err.message);
+      toast.error(err.message);
     } finally {
       setLoading(false);
     }

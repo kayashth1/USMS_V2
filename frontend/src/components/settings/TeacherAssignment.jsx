@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 
 import { getTeachersBySchool } from "@/services/teacher.service";
+import { useToast } from "@/components/ui/toast";
 import { getClassSubjects } from "@/services/classSubject.service";
 import {
   assignTeacher,
@@ -17,6 +18,7 @@ import {
 // subjects and classes are passed from Settings.jsx (shared, always up-to-date)
 const TeacherAssignment = ({ subjects, classes }) => {
   const schoolId = localStorage.getItem("principalSchoolId");
+  const { toast } = useToast();
 
   const [teachers,        setTeachers]        = useState([]);
   const [selectedTeacher, setSelectedTeacher] = useState("");
@@ -24,6 +26,7 @@ const TeacherAssignment = ({ subjects, classes }) => {
   const [selectedSubject, setSelectedSubject] = useState("");
   const [classSubjects,   setClassSubjects]   = useState([]);
   const [assignments,     setAssignments]     = useState([]);
+  const [assigning,       setAssigning]       = useState(false);
 
   const teacherMap = useMemo(() => new Map(teachers.map((t) => [t.id, t])),   [teachers]);
   const subjectMap = useMemo(() => new Map(subjects.map((s) => [s.id, s])),   [subjects]);
@@ -45,9 +48,17 @@ const TeacherAssignment = ({ subjects, classes }) => {
   );
 
   const handleAssign = async () => {
-    await assignTeacher({ teacherId: selectedTeacher, classId: selectedClass, subjectId: selectedSubject, schoolId });
-    setAssignments(await getTeacherAssignments(schoolId));
-    setSelectedSubject("");
+    if (assigning) return;
+    setAssigning(true);
+    try {
+      await assignTeacher({ teacherId: selectedTeacher, classId: selectedClass, subjectId: selectedSubject, schoolId });
+      setAssignments(await getTeacherAssignments(schoolId));
+      setSelectedSubject("");
+    } catch (err) {
+      toast.error(err.message);
+    } finally {
+      setAssigning(false);
+    }
   };
 
   return (
@@ -88,9 +99,9 @@ const TeacherAssignment = ({ subjects, classes }) => {
 
           <Button
             onClick={handleAssign}
-            disabled={!selectedTeacher || !selectedClass || !selectedSubject}
+            disabled={!selectedTeacher || !selectedClass || !selectedSubject || assigning}
           >
-            Assign
+            {assigning ? "Assigning…" : "Assign"}
           </Button>
         </div>
 

@@ -4,9 +4,13 @@ import { addSubject, deleteSubject } from "@/services/subject.service";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
+import { useToast } from "@/components/ui/toast";
+import { useConfirm } from "@/components/ui/confirm-dialog";
 
 const SubjectManagement = ({ subjects, onReload }) => {
   const schoolId = localStorage.getItem("principalSchoolId");
+  const { toast } = useToast();
+  const confirm = useConfirm();
 
   const [newSubject, setNewSubject] = useState("");
   const [loading,    setLoading]    = useState(false);
@@ -19,19 +23,25 @@ const SubjectManagement = ({ subjects, onReload }) => {
       setNewSubject("");
       onReload();
     } catch (err) {
-      alert(err.message);
+      toast.error(err.message);
     } finally {
       setLoading(false);
     }
   };
 
   const handleDelete = async (subject) => {
-    if (!confirm(`Delete "${subject.name}" permanently?\nRemove it from all classes first.`)) return;
+    const ok = await confirm({
+      title: `Delete "${subject.name}"?`,
+      description: "This is permanent. Remove it from all classes first.",
+      confirmLabel: "Delete",
+      danger: true,
+    });
+    if (!ok) return;
     try {
       await deleteSubject({ subjectId: subject.id, schoolId });
       onReload();
     } catch (err) {
-      alert(err.message);
+      toast.error(err.message);
     }
   };
 

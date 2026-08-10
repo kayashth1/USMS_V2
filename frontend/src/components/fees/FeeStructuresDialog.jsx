@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from "react";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
+import { useConfirm } from "@/components/ui/confirm-dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -27,6 +28,7 @@ const EMPTY = {
 };
 
 export default function FeeStructuresDialog({ open, onOpenChange, schoolId, classes = [] }) {
+  const confirm = useConfirm();
   const [structures, setStructures] = useState([]);
   const [loading,    setLoading]    = useState(false);
   const [form,       setForm]       = useState(EMPTY);
@@ -94,7 +96,8 @@ export default function FeeStructuresDialog({ open, onOpenChange, schoolId, clas
   };
 
   const handleDeactivate = async (id) => {
-    if (!confirm("Deactivate this fee structure? It won't appear in new profiles.")) return;
+    const ok = await confirm("Deactivate this fee structure? It won't appear in new profiles.");
+    if (!ok) return;
     setDeactId(id);
     try {
       await deactivateFeeStructure(id);

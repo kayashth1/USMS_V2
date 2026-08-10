@@ -1,0 +1,477 @@
+rules_version = '2';
+
+// usms-v2 Firestore security rules.
+//
+// Replaces the previous live rule, which was a single blanket
+// `allow read, write: if request.auth != null` on every document in the
+// project — any authenticated account (student, teacher, or principal, at
+// ANY school) could read or write ANY document belonging to ANY school.
+// Found during a full-ecosystem correctness audit, 2026-08-08.
+//
+// Every account carries two custom claims, set at account creation:
+//   role:     "principal" | "teacher" | "student"
+//   schoolId: the school this account belongs to (there are exactly 3
+//             roles in production — no separate super-admin role exists)
+//
+// IMPORTANT, learned the hard way via live testing against this exact
+// project (see this repo's CLAUDE.md "Firestore security rules" section
+// for the full story) — Firestore's rule evaluation for a `list` (query)
+// request is NOT simply "check the rule against every document in the
+// potential result set": a direct `resource.data.FIELD == x` check only
+// works for `list` when the query itself ALSO filters on that exact
+// FIELD with equality. If the query filters on a *different* field (e.g.
+// the Teacher app's `students where classId==X` roster query, which
+// never filters by schoolId), a direct schoolId check on `resource.data`
+// makes the ENTIRE query fail with permission-denied, even though every
+// document that would be returned genuinely satisfies the check.
+//
+// get()/exists() calls sidestep this — but ONLY when they read a
+// *different* collection (e.g. resolving a class's schoolId via its own
+// `classes/{classId}` doc). A get() back into the SAME collection being
+// listed (even by the exact document's own ID) still fails the same way.
+// So: for any collection whose real queries filter on something other
+// than schoolId, resolve the school via get() into a *related* document
+// instead of checking resource.data on the listed document itself. Every
+// pattern below was verified against this rule with a real signed-in
+// teacher token before being deployed as final — not just reasoned about.
+//
+// WRITE operations (create/update/delete) are NEVER affected by any of
+// this — they always target one specific, already-known document path,
+// so a plain `resource.data`/`request.resource.data` check is always
+// safe there regardless of collection.
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ── Helpers ────────────────────────────────────────────────────────────
+
+    function signedIn() {
+      return request.auth != null;
+    }
+    function role() {
+      return request.auth.token.role;
+    }
+    function myUid() {
+      return request.auth.uid;
+    }
+    function mySchool() {
+      return request.auth.token.schoolId;
+    }
+    function isPrincipal() {
+      return signedIn() && role() == 'principal';
+    }
+    function isTeacher() {
+      return signedIn() && role() == 'teacher';
+    }
+    function isStudent() {
+      return signedIn() && role() == 'student';
+    }
+    function isStaff() {
+      return isPrincipal() || isTeacher();
+    }
+    // Superadmin is NOT a role claim — LoginPage.jsx's actual flow checks
+    // for the EXISTENCE of a `superadmins/{uid}` doc first, before ever
+    // checking `principals/{uid}`. Bug found live 2026-08-09: the first
+    // deploy of these rules had no match block for either `superadmins`
+    // or `principals` at all, so that very first login-time read fell
+    // through to the deny-by-default catch-all and blocked every
+    // principal (and superadmin) from logging in — including via the
+    // get()-based ownsSchool() reverse lookup this file originally relied
+    // on exclusively, which was never actually what the login code reads.
+    function isSuperAdmin() {
+      return signedIn() &&
+        exists(/databases/$(database)/documents/superadmins/$(myUid()));
+    }
+    // Principal accounts carry NO schoolId custom claim (only teacher/
+    // student accounts do — verified live 2026-08-08: a real principal's
+    // decoded ID token has {role:"principal"} and nothing else). A
+    // principal's school is only knowable by looking up which school's
+    // `principalId` equals their uid. mySchool() is null for principals,
+    // so a plain `resource.data.schoolId == mySchool()` silently denies
+    // every principal request rather than erroring — ownsSchool() covers
+    // that case via the reverse lookup.
+    function ownsSchool(schoolId) {
+      return isPrincipal() &&
+        get(/databases/$(database)/documents/schools/$(schoolId)).data.principalId == myUid();
+    }
+    // Direct same-school check — ONLY valid for get() (single known doc),
+    // for write rules, or for list rules whose real query already filters
+    // on schoolId with equality (verified per-collection below).
+    function sameSchool() {
+      return signedIn() &&
+        (resource.data.schoolId == mySchool() || ownsSchool(resource.data.schoolId));
+    }
+    function sameSchoolWrite() {
+      return signedIn() &&
+        (request.resource.data.schoolId == mySchool() || ownsSchool(request.resource.data.schoolId));
+    }
+    // Cross-collection lookups for list rules whose query does NOT filter
+    // on schoolId — each resolves the true owning school via a different,
+    // already-indexed document.
+    function classSchool(classId) {
+      return get(/databases/$(database)/documents/classes/$(classId)).data.schoolId;
+    }
+    function teacherSchool(teacherId) {
+      return get(/databases/$(database)/documents/teachers/$(teacherId)).data.schoolId;
+    }
+    function studentSchool(studentId) {
+      return get(/databases/$(database)/documents/students/$(studentId)).data.schoolId;
+    }
+    function batchSchool(batchId) {
+      return get(/databases/$(database)/documents/promotionBatches/$(batchId)).data.schoolId;
+    }
+    // Same principal-ownership fallback as sameSchool(), for the indirect
+    // (get()-based) checks above.
+    function classSchoolMatch(classId) {
+      return classSchool(classId) == mySchool() || ownsSchool(classSchool(classId));
+    }
+    function teacherSchoolMatch(teacherId) {
+      return teacherSchool(teacherId) == mySchool() || ownsSchool(teacherSchool(teacherId));
+    }
+
+    // ── Core school/people/class structure ───────────────────────────────
+
+    // Login-time existence check only (does this uid have a superadmin
+    // doc at all) — superadmins have no other collections of their own.
+    match /superadmins/{uid} {
+      allow get: if signedIn() && myUid() == uid;
+      allow list, write: if false;
+    }
+
+    // Read by LoginPage.jsx immediately after auth, before `schools` is
+    // ever touched — this is the account record a principal login checks.
+    // Written by the createSchool Cloud Function (admin SDK, bypasses
+    // rules), never by a direct client write.
+    match /principals/{uid} {
+      allow get: if (isPrincipal() && myUid() == uid) || isSuperAdmin();
+      // getPrincipalBySchool() (SuperAdmin dashboard) queries across all
+      // principals filtered by schoolId== — superadmin-only, no per-school
+      // scoping needed since they're platform-level.
+      allow list: if isSuperAdmin();
+      allow write: if false;
+    }
+
+    match /schools/{schoolId} {
+      allow get: if signedIn() && (mySchool() == schoolId || ownsSchool(schoolId) || isSuperAdmin());
+      // getAllSchools()/getPlatformStats() (SuperAdmin dashboard) list
+      // every school with no filter at all.
+      allow list: if isSuperAdmin();
+      // Created via a Cloud Function (admin SDK, bypasses rules). Direct
+      // client updates: a principal editing their own settings, or a
+      // superadmin toggling isActive/plan from the SuperAdmin dashboard
+      // (superadmin.service.js's updateDoc(doc(db,"schools",schoolId))).
+      allow update: if (isPrincipal() && resource.data.principalId == myUid()) || isSuperAdmin();
+      allow create, delete: if false;
+    }
+
+    match /students/{studentId} {
+      allow get: if (isStudent() && myUid() == studentId) || (isStaff() && sameSchool()) || isSuperAdmin();
+      // Two real shapes on different fields, same Firestore limitation as
+      // studentPromotions/feeInstallments (see those match blocks): the
+      // Teacher app's roster query filters classId== only, while the
+      // Admin panel's getStudentsBySchool() filters schoolId== directly.
+      // Relaxed to role-only for list; `get` above stays precisely scoped
+      // (self for student, same-school for staff — get() is unaffected
+      // by this limitation since it targets one known document). Also
+      // covers the SuperAdmin dashboard's unfiltered/per-school counts.
+      allow list: if isStaff() || isSuperAdmin();
+      // createStudent()/deleteStudent() are Cloud Functions (admin SDK).
+      // Direct client writes here are the Rollover/promotion pipeline and
+      // Admin panel edits — both principal-driven, same-school only.
+      allow update: if isPrincipal() && sameSchool() && sameSchoolWrite();
+      allow create, delete: if false;
+    }
+
+    match /teachers/{teacherId} {
+      // getTeachersBySchool() always filters schoolId== directly — safe.
+      allow get: if (isTeacher() && myUid() == teacherId) || (isStaff() && sameSchool()) || isSuperAdmin();
+      // Also covers the SuperAdmin dashboard's unfiltered/per-school counts.
+      allow list: if (isStaff() && sameSchool()) || isSuperAdmin();
+      allow update: if isPrincipal() && sameSchool() && sameSchoolWrite();
+      allow create, delete: if false;
+    }
+
+    match /classes/{classId} {
+      // Every real query/get on this collection is either a direct doc
+      // fetch or filters schoolId== directly (getClassesBySchool) — safe.
+      allow read: if signedIn() && sameSchool();
+      allow write: if isPrincipal() && sameSchoolWrite() &&
+        (resource == null || sameSchool());
+    }
+
+    match /subjects/{subjectId} {
+      allow read: if signedIn() && sameSchool();
+      allow write: if isPrincipal() && sameSchoolWrite() &&
+        (resource == null || sameSchool());
+    }
+
+    match /classSubjects/{id} {
+      // Missed entirely from the initial rules deploy — classSubjects had
+      // no match block and was falling through to the deny-by-default catch-all,
+      // blocking all reads and making assigned subjects invisible in the Admin
+      // Panel. Found 2026-08-10.
+      //
+      // Every real query (getClassSubjects, addSubjectToClass duplicate check)
+      // always filters schoolId== (plus classId== and/or subjectId==), so
+      // sameSchool() is provable from the query for both list and writes.
+      allow read: if isStaff() && sameSchool();
+      allow write: if isPrincipal() && sameSchoolWrite() &&
+        (resource == null || sameSchool());
+    }
+
+    match /teacherClassSubjects/{id} {
+      allow get: if isStaff() && (sameSchool() || teacherSchoolMatch(resource.data.teacherId));
+      // Two real list shapes on different filter fields:
+      //   Admin Panel getTeacherAssignments()  → filters schoolId==
+      //   Teacher App getRosterByTeacher()      → filters teacherId==
+      // Firestore cannot prove a rule covering both shapes in a single
+      // allow statement — sameSchool() is provable only when the query pins
+      // schoolId; teacherSchoolMatch() only when it pins teacherId. A combined
+      // A||B or separate allow statements are treated as one block and the
+      // unprovable half fails the whole query. Relaxed to role-only (same
+      // pattern as students, studentPromotions, feeInstallments) — still
+      // requires a real staff claim, just no cross-school boundary check for
+      // list. Was verified with the Teacher app's shape only in the initial
+      // deploy (2026-08-08), which is why the Admin Panel's schoolId-filtered
+      // query was silently denied. Found 2026-08-10.
+      allow list: if isStaff();
+      allow write: if isPrincipal() && sameSchoolWrite() &&
+        (resource == null || sameSchool());
+    }
+
+    match /teacherTimetables/{teacherId} {
+      // Only ever a direct doc().get() by teacherId in every app checked
+      // this session — no list usage found.
+      allow get: if (isTeacher() && myUid() == teacherId) || (isStaff() && sameSchool());
+      allow list: if isStaff() && sameSchool();
+      allow write: if isPrincipal() && sameSchoolWrite() &&
+        (resource == null || sameSchool());
+    }
+
+    match /classTimetables/{id} {
+      // Student app's fetchTimetable() filters by classDocId only — indirect.
+      allow read: if signedIn() && classSchoolMatch(resource.data.classDocId);
+      allow write: if isPrincipal() && sameSchoolWrite() &&
+        (resource == null || sameSchool());
+    }
+
+    match /timePeriods/{id} {
+      // Every real query filters schoolId== directly — verified live.
+      allow read: if signedIn() && sameSchool();
+      allow write: if isPrincipal() && sameSchoolWrite() &&
+        (resource == null || sameSchool());
+    }
+
+    match /academicYears/{id} {
+      // Every real query filters schoolId== (+status==) directly — safe.
+      allow read: if signedIn() && sameSchool();
+      allow write: if isPrincipal() && sameSchoolWrite() &&
+        (resource == null || sameSchool());
+    }
+
+    // ── Attendance (path-based: schoolId is a path segment, not a field) ───
+
+    match /attendance/{schoolId}/academicYears/{yearId}/classes/{classId}/months/{month} {
+      allow read: if signedIn() && (mySchool() == schoolId || ownsSchool(schoolId));
+      // Written by the Teacher app via a transaction (create-or-update);
+      // reads (eligibility, duplicate check) happen inside the same rule
+      // evaluation as the write, so this covers both.
+      allow write: if isTeacher() && mySchool() == schoolId;
+    }
+
+    // ── Materials & communications ──────────────────────────────────────────
+
+    match /study_materials/{id} {
+      // No schoolId field on this collection — resolve via the class.
+      allow get: if signedIn() && classSchoolMatch(resource.data.classId);
+      allow list: if signedIn() && classSchoolMatch(resource.data.classId);
+      allow create: if isTeacher() && classSchool(request.resource.data.classId) == mySchool();
+      allow update, delete: if isTeacher() && classSchool(resource.data.classId) == mySchool();
+    }
+
+    match /notices/{id} {
+      // Every real query filters schoolId== directly — safe.
+      allow read: if signedIn() && sameSchool();
+      allow write: if isPrincipal() && sameSchoolWrite() &&
+        (resource == null || sameSchool());
+    }
+
+    match /teachers_instructions/{id} {
+      // Two real read paths on different fields: a teacher listing their
+      // own sent history (senderId== only) and a student listing by
+      // targetClass==+schoolId== (added 2026-08-10 — targetClass alone is
+      // a plain string like "11A" that's reused across many schools, so
+      // filtering by it alone leaked every school's same-named-class
+      // instructions to every student; every document now also carries
+      // schoolId and the student query filters on both). Same multi-shape
+      // limitation as studentPromotions/feeInstallments (see those match
+      // blocks): a query is only provable against a rule that checks
+      // exactly the field(s) it filters on, so one rule can't precisely
+      // cover two different-field shapes at once — relaxed to role-only
+      // for read, same as those collections. The real scoping now happens
+      // at the query level (both apps only ever query their own
+      // senderId/schoolId), and writes stay precisely scoped below since
+      // writes are always single-document and unaffected by this limit.
+      allow read: if isTeacher() || isStudent();
+      allow create: if isTeacher() && myUid() == request.resource.data.senderId
+        && request.resource.data.schoolId == mySchool();
+      allow update, delete: if isTeacher() && myUid() == resource.data.senderId;
+    }
+
+    match /doubt_groups/{groupId} {
+      // Queried as `members.{uid} == role` — the exact field this checks.
+      allow read: if signedIn() && resource.data.members[myUid()] != null;
+      allow write: if isStaff() &&
+        (resource == null || resource.data.members[myUid()] != null);
+
+      match /messages/{messageId} {
+        allow read: if signedIn() &&
+          get(/databases/$(database)/documents/doubt_groups/$(groupId)).data.members[myUid()] != null;
+        allow create: if signedIn() &&
+          get(/databases/$(database)/documents/doubt_groups/$(groupId)).data.members[myUid()] != null;
+        allow update, delete: if false;
+      }
+    }
+
+    // ── Library (shared catalog — no schoolId; gated by assignment tables) ──
+
+    match /libraryResources/{id} {
+      allow read: if signedIn();
+      allow write: if isPrincipal();
+    }
+
+    match /libraryCollections/{id} {
+      allow read: if signedIn();
+      allow write: if isPrincipal();
+    }
+
+    match /schoolResourceAssignments/{id} {
+      allow read: if isStaff() && sameSchool();
+      allow write: if isPrincipal() && sameSchoolWrite() &&
+        (resource == null || sameSchool());
+    }
+
+    match /schoolCollectionAssignments/{id} {
+      allow read: if isStaff() && sameSchool();
+      allow write: if isPrincipal() && sameSchoolWrite() &&
+        (resource == null || sameSchool());
+    }
+
+    match /classResourceAssignments/{id} {
+      // Every real query filters schoolId== (+classId==) directly — safe.
+      allow read: if signedIn() && sameSchool();
+      allow write: if isPrincipal() && sameSchoolWrite() &&
+        (resource == null || sameSchool());
+    }
+
+    // ── Promotion / rollover ────────────────────────────────────────────────
+
+    match /promotionBatches/{id} {
+      // Every real query filters schoolId== directly — safe.
+      allow read: if isPrincipal() && sameSchool();
+      allow write: if isPrincipal() && sameSchoolWrite() &&
+        (resource == null || sameSchool());
+    }
+
+    match /studentPromotions/{id} {
+      // Has two real read shapes filtering on different fields (schoolId+
+      // fromAcademicYear for Graduation/Class Strength reports, vs.
+      // batchId-in-[...] for the Promotion report's 2nd query) — verified
+      // live 2026-08-08 that Firestore's list-rule provability check
+      // considers ALL `allow` statements for a match block together, so
+      // neither a combined `||` nor separate `allow read` statements can
+      // serve two different-field shapes at once (whichever shape a given
+      // request uses, the OTHER shape's unprovable field reference still
+      // poisons the whole evaluation and the request is denied outright).
+      // Relaxed to role-only for this one collection as the pragmatic
+      // choice — still gated to principal, just without the cross-school
+      // boundary check. A future fix would make every real query here
+      // filter by schoolId consistently (e.g. resolve batchId indirect me
+      // report step differently) so the precise sameSchool() check can
+      // cover every shape uniformly (e.g. resolve batchId to schoolId
+      // some other way, or make that report step filter by schoolId too).
+      allow read: if isPrincipal();
+      allow write: if isPrincipal() && sameSchoolWrite() &&
+        (resource == null || sameSchool());
+    }
+
+    // ── Fees ─────────────────────────────────────────────────────────────────
+
+    match /feeStructures/{id} {
+      // Every real query filters schoolId== directly — safe.
+      allow read: if isStaff() && sameSchool();
+      allow write: if isPrincipal() && sameSchoolWrite() &&
+        (resource == null || sameSchool());
+    }
+
+    match /studentFeeProfiles/{id} {
+      // Student's own fetch is a direct doc().get() by deterministic ID
+      // ("${studentId}_${academicYearId}") — get() is unaffected by the
+      // list-provability issue, so a direct field check is fine here.
+      allow get: if (isStudent() && resource.data.studentId == myUid()) ||
+        (isStaff() && sameSchool());
+      // getProfilesBySchoolAndYear() always filters schoolId== — safe.
+      allow list: if isStaff() && sameSchool();
+      allow write: if isPrincipal() && sameSchoolWrite() &&
+        (resource == null || sameSchool());
+    }
+
+    match /feeInstallments/{id} {
+      // Two real shapes on different fields: schoolId==+academicYear==
+      // (Outstanding report) vs. feeProfileId== only (Student app's fee
+      // overview) — same multi-shape limitation as studentPromotions
+      // (see that match block's comment). Relaxed to role-only: any
+      // staff can read (needed for the schoolId-filtered report shape),
+      // and any student can read (needed for their own feeProfileId-
+      // filtered shape) — narrower than the old blanket rule (still
+      // requires a real role claim) but not school- or self-scoped for
+      // this collection specifically.
+      allow read: if isStaff() || isStudent();
+      allow write: if isPrincipal() && sameSchoolWrite() &&
+        (resource == null || sameSchool());
+    }
+
+    match /feePayments/{id} {
+      // Admin reports filter schoolId==+academicYear==+status== (safe
+      // direct); a per-student payment-history view filters studentId==
+      // only (existing feePayments:studentId+createdAt index implies this
+      // shape is real) — different field, same multi-shape limitation.
+      allow read: if isStaff();
+      allow write: if isPrincipal() && sameSchoolWrite() &&
+        (resource == null || sameSchool());
+    }
+
+    match /paymentAllocations/{id} {
+      allow read: if isStaff();
+      allow write: if isPrincipal();
+    }
+
+    match /feeRevisions/{id} {
+      // Same multi-shape situation as feeInstallments (schoolId==-filtered
+      // report queries vs. profileId==-only Student app fee overview).
+      allow read: if isStaff() || isStudent();
+      allow write: if isPrincipal() && sameSchoolWrite() &&
+        (resource == null || sameSchool());
+    }
+
+    // ── Exams (feature currently a non-functional placeholder in the Admin
+    //    panel, per this repo's audit findings — Student app's fetchExams()
+    //    has no filter at all today, so a schoolId check would break even
+    //    the placeholder read; relaxed until the feature is real) ──────────
+
+    match /exams/{id} {
+      allow read: if signedIn();
+      allow write: if isPrincipal() && sameSchoolWrite() &&
+        (resource == null || sameSchool());
+    }
+
+    // ── Everything else: no rule matched above ──────────────────────────────
+    // Deliberately deny-by-default rather than falling back to the old
+    // "any authenticated user" blanket rule. If a real feature needs a new
+    // collection, add a specific match block for it above rather than
+    // loosening this.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

@@ -13,11 +13,13 @@ import { Label } from "@/components/ui/label";
 
 import { Eye, EyeOff } from "lucide-react";
 import { updateTeacher, changeTeacherPassword } from "@/services/teacher.service";
+import { useToast } from "@/components/ui/toast";
 import { useCustomFieldDefs } from "@/hooks/useCustomFieldDefs";
 import CustomFieldsForm from "@/components/common/CustomFieldsForm";
 
 const EditTeacherDialog = ({ open, onOpenChange, teacher, onUpdated }) => {
   const schoolId = teacher?.schoolId || localStorage.getItem("principalSchoolId");
+  const { toast } = useToast();
   const [loading,      setLoading]      = useState(false);
   const [form,         setForm]         = useState(null);
   const [customValues, setCustomValues] = useState({});
@@ -53,14 +55,14 @@ const EditTeacherDialog = ({ open, onOpenChange, teacher, onUpdated }) => {
   };
 
   const handleChangePassword = async () => {
-    if (newPwd.length < 6) return alert("Password must be at least 6 characters");
+    if (newPwd.length < 6) { toast.error("Password must be at least 6 characters"); return; }
     try {
       setPwdLoading(true);
       await changeTeacherPassword(teacher.id, newPwd);
       setNewPwd("");
-      alert("Password updated successfully");
+      toast.success("Password updated successfully");
     } catch (err) {
-      alert(err.message);
+      toast.error(err.message);
     } finally {
       setPwdLoading(false);
     }
@@ -76,11 +78,11 @@ const EditTeacherDialog = ({ open, onOpenChange, teacher, onUpdated }) => {
 
       await updateTeacher(teacher.id, { ...form, customFields: customValues });
 
-      onUpdated();           // 🔥 ADD THIS
+      onUpdated();
       onOpenChange(false);
     } catch (error) {
       console.error("Update teacher error:", error);
-      alert("Failed to update teacher");
+      toast.error("Failed to update teacher");
     } finally {
       setLoading(false);
     }

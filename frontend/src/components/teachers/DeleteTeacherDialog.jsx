@@ -4,8 +4,10 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { deleteTeacher } from "@/services/teacher.service";
+import { useToast } from "@/components/ui/toast";
 
 const DeleteTeacherDialog = ({ open, onOpenChange, teacher, onDeleted }) => {
+  const { toast } = useToast();
   const [loading, setLoading] = useState(false);
 
   if (!teacher) return null;
@@ -18,7 +20,7 @@ const DeleteTeacherDialog = ({ open, onOpenChange, teacher, onDeleted }) => {
       onOpenChange(false);
     } catch (error) {
       console.error("Delete teacher error:", error);
-      alert("Failed to delete teacher: " + error.message);
+      toast.error("Failed to delete teacher: " + error.message);
     } finally {
       setLoading(false);
     }

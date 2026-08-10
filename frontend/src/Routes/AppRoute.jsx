@@ -11,13 +11,15 @@ import SuperAdminDashboard from "@/Pages/superadmin/SuperAdminDashboard";
 import SuperAdminSchools from "@/Pages/superadmin/SuperAdminSchools";
 import SuperAdminCreateSchool from "@/Pages/superadmin/SuperAdminCreateSchool";
 import SuperAdminSchoolDetail from "@/Pages/superadmin/SuperAdminSchoolDetail";
+import SuperAdminLibrary from "@/Pages/library/SuperAdminLibrary";
 
 import Notices from "@/Pages/notices/NoticeManagement";
 import Teachers from "@/Pages/teachers/Teachers";
 import TeacherProfile from "@/Pages/teachers/TeacherProfile";
 import Students from "@/Pages/students/Students";
 import Attendance from "@/Pages/attendance/Attendance";
-import Timetable from "@/Pages/timetable/Timetable";
+import Timetable        from "@/Pages/timetable/Timetable";
+import ClassAttendance  from "@/Pages/attendance/ClassAttendance";
 import FeesV2 from "@/Pages/fees/FeesV2";
 import Alumni from "@/Pages/alumni/Alumni";
 import Books from "@/Pages/books/Books";
@@ -50,6 +52,7 @@ const AppRoutes = () => {
           <Route path="/superadmin/schools"              element={<SuperAdminSchools />} />
           <Route path="/superadmin/schools/new"          element={<SuperAdminCreateSchool />} />
           <Route path="/superadmin/schools/:schoolId"    element={<SuperAdminSchoolDetail />} />
+          <Route path="/superadmin/library"              element={<SuperAdminLibrary />} />
         </Route>
 
         {/* ================= PROTECTED (PRINCIPAL) ================= */}
@@ -69,7 +72,8 @@ const AppRoutes = () => {
           />
           <Route path="/students" element={<Students />} />
           <Route path="/students/:studentId" element={<StudentProfile/>} />
-          <Route path="/attendance" element={<Attendance />} />
+          <Route path="/attendance"            element={<Attendance />} />
+          <Route path="/attendance/:classId"  element={<ClassAttendance />} />
           <Route path="/timetable" element={<Timetable />} />
           <Route path="/fees-v2" element={<FeesV2 />} />
           <Route path="/alumni" element={<Alumni />} />

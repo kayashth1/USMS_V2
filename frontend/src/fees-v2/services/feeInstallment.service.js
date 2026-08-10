@@ -264,12 +264,15 @@ export async function createInstallments({ profileId, schoolSettings, createdBy 
     // Transition the profile to ACTIVE and clear opening balance migration values.
     // openingOutstanding and openingCredit have been transferred into installments;
     // installments are now the single source of truth for balances.
+    // The original values are preserved in applied* fields for display purposes.
     tx.update(profileRef, {
-      status:                ProfileStatus.ACTIVE,
-      installmentsGenerated: true,
-      openingOutstanding:    0,
-      openingCredit:         0,
-      updatedAt:             now,
+      status:                        ProfileStatus.ACTIVE,
+      installmentsGenerated:         true,
+      appliedOpeningOutstanding:     profile.openingOutstanding ?? 0,
+      appliedOpeningCredit:          profile.openingCredit ?? 0,
+      openingOutstanding:            0,
+      openingCredit:                 0,
+      updatedAt:                     now,
     });
   });
 

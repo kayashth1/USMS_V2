@@ -1,6 +1,7 @@
 import { getTeachersBySchool, deleteTeacher } from "@/services/teacher.service";
 import { useNavigate } from "react-router-dom";
 import { useState, useEffect } from "react";
+import { useToast } from "@/components/ui/toast";
 
 import EditTeacherDialog from "@/components/teachers/EditTeacherDialog";
 import AddTeacherDialog from "@/components/teachers/AddTeacherDialog";
@@ -16,6 +17,7 @@ import { Plus, Mail, Phone, Pencil, Trash2, Users } from "lucide-react";
 
 const Teachers = () => {
   const navigate = useNavigate();
+  const { toast } = useToast();
 
   const [teachers, setTeachers] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -72,7 +74,7 @@ const Teachers = () => {
       setBulkOpen(false);
       reloadTeachers();
     } catch (err) {
-      alert(err.message);
+      toast.error(err.message);
     } finally {
       setBulkLoading(false);
     }

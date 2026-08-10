@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { createAcademicYear, activateAcademicYear, closeAcademicYear, deleteAcademicYear } from "@/fees-v2";
+import { useConfirm } from "@/components/ui/confirm-dialog";
 
 const STATUS_COLORS = {
   active:   "bg-green-100 text-green-700",
@@ -16,6 +17,7 @@ const STATUS_COLORS = {
 const EMPTY_FORM = { year: "", startDate: "", endDate: "" };
 
 export default function AcademicYearDialog({ open, onOpenChange, schoolId, years = [], onChanged }) {
+  const confirm = useConfirm();
   const [form,      setForm]      = useState(EMPTY_FORM);
   const [saving,    setSaving]    = useState(false);
   const [error,     setError]     = useState(null);
@@ -61,7 +63,8 @@ export default function AcademicYearDialog({ open, onOpenChange, schoolId, years
   };
 
   const handleClose = async (yearId) => {
-    if (!confirm("Close this academic year? This will prevent new fee profiles from being created for it.")) return;
+    const ok = await confirm("Close this academic year? This will prevent new fee profiles from being created for it.");
+    if (!ok) return;
     setCloseId(yearId);
     setError(null);
     setCloseErrors(null);
@@ -80,7 +83,13 @@ export default function AcademicYearDialog({ open, onOpenChange, schoolId, years
   };
 
   const handleDelete = async (yearId) => {
-    if (!confirm("Permanently delete this academic year? This cannot be undone.")) return;
+    const ok = await confirm({
+      title: "Delete academic year?",
+      description: "This cannot be undone.",
+      confirmLabel: "Delete",
+      danger: true,
+    });
+    if (!ok) return;
     setDeleteId(yearId);
     setError(null);
     try {

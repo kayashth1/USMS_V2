@@ -11,6 +11,7 @@ import {
 } from "@/components/ui/select";
 import { ChevronDown, ChevronRight } from "lucide-react";
 import { PageLoader, InlineLoader } from "@/components/ui/spinner";
+import { useConfirm } from "@/components/ui/confirm-dialog";
 
 import AcademicYearDialog       from "@/components/fees/AcademicYearDialog";
 import FeeStructuresDialog      from "@/components/fees/FeeStructuresDialog";
@@ -172,6 +173,7 @@ function FeeProfileDetail({
   onPaymentCreated,
   onPaymentCancelled,
 }) {
+  const confirm = useConfirm();
   const [installments,    setInstallments]    = useState(null);
   const [payments,        setPayments]        = useState(null);
   const [feeStructures,   setFeeStructures]   = useState([]);
@@ -216,7 +218,13 @@ function FeeProfileDetail({
   }, [schoolId]);
 
   const handleDelete = async () => {
-    if (!confirm(`Delete draft fee profile for ${studentMap[profile.studentId] ?? profile.studentId}? This cannot be undone.`)) return;
+    const ok = await confirm({
+      title: "Delete draft fee profile?",
+      description: `This will permanently remove the profile for ${studentMap[profile.studentId] ?? profile.studentId}.`,
+      confirmLabel: "Delete",
+      danger: true,
+    });
+    if (!ok) return;
     setActionError(null);
     try {
       await deleteDraftProfile(profile.id);
@@ -227,7 +235,13 @@ function FeeProfileDetail({
   };
 
   const handleCloseProfile = async () => {
-    if (!confirm("Close this fee profile? The academic year must already be closed. This cannot be undone.")) return;
+    const ok = await confirm({
+      title: "Close fee profile?",
+      description: "The academic year must already be closed. This cannot be undone.",
+      confirmLabel: "Close Profile",
+      danger: true,
+    });
+    if (!ok) return;
     setClosingProfile(true);
     setActionError(null);
     try {
@@ -344,16 +358,20 @@ function FeeProfileDetail({
           <p className="text-xs text-gray-400">Net Annual Fee</p>
           <p className="text-base font-semibold text-indigo-700">{INR(profile.netAnnualFee)}</p>
         </div>
-        {!profile.installmentsGenerated && (profile.openingOutstanding ?? 0) > 0 && (
+        {(profile.appliedOpeningOutstanding ?? profile.openingOutstanding ?? 0) > 0 && (
           <div className="bg-amber-50 border border-amber-100 rounded-md p-3 space-y-0.5">
             <p className="text-xs text-gray-400">Opening Outstanding</p>
-            <p className="text-base font-semibold text-amber-700">{INR(profile.openingOutstanding)}</p>
+            <p className="text-base font-semibold text-amber-700">
+              {INR(profile.appliedOpeningOutstanding ?? profile.openingOutstanding)}
+            </p>
           </div>
         )}
-        {!profile.installmentsGenerated && (profile.openingCredit ?? 0) > 0 && (
+        {(profile.appliedOpeningCredit ?? profile.openingCredit ?? 0) > 0 && (
           <div className="bg-green-50 border border-green-100 rounded-md p-3 space-y-0.5">
             <p className="text-xs text-gray-400">Opening Credit</p>
-            <p className="text-base font-semibold text-green-700">{INR(profile.openingCredit)}</p>
+            <p className="text-base font-semibold text-green-700">
+              {INR(profile.appliedOpeningCredit ?? profile.openingCredit)}
+            </p>
           </div>
         )}
       </div>

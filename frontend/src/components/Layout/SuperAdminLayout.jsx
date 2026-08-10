@@ -2,11 +2,14 @@ import { useState } from "react";
 import { Outlet, NavLink, useNavigate } from "react-router-dom";
 import { signOut } from "firebase/auth";
 import { auth } from "@/config/firebase";
-import { LayoutDashboard, School, LogOut, ChevronLeft, ChevronRight } from "lucide-react";
+import { ToastProvider }          from "@/components/ui/toast";
+import { ConfirmDialogProvider }  from "@/components/ui/confirm-dialog";
+import { LayoutDashboard, School, LibraryBig, LogOut, ChevronLeft, ChevronRight } from "lucide-react";
 
 const NAV_ITEMS = [
   { to: "/superadmin",         label: "Dashboard", icon: LayoutDashboard, end: true },
   { to: "/superadmin/schools", label: "Schools",   icon: School },
+  { to: "/superadmin/library", label: "Library",   icon: LibraryBig },
 ];
 
 const SuperAdminLayout = () => {
@@ -20,6 +23,8 @@ const SuperAdminLayout = () => {
   };
 
   return (
+    <ToastProvider>
+    <ConfirmDialogProvider>
     <div className="flex h-screen bg-gray-50">
       {/* ── Sidebar ── */}
       <aside
@@ -85,6 +90,8 @@ const SuperAdminLayout = () => {
         <Outlet />
       </main>
     </div>
+    </ConfirmDialogProvider>
+    </ToastProvider>
   );
 };
 

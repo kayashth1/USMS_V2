@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { doc, getDoc } from "firebase/firestore";
 import { db } from "@/config/firebase";
-import { getActiveStudentFeeYear } from "@/services/fees.service";
+import { getActiveAcademicYear, getProfileByStudentAndYear } from "@/fees-v2";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -11,6 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { getSubjectsForStudent } from "@/services/studentClassSubjects.service";
 import { useCustomFieldDefs } from "@/hooks/useCustomFieldDefs";
 import EditStudentDialog from "@/components/students/EditStudentDialog";
+import StudentAttendanceSummary from "@/components/attendance/StudentAttendanceSummary";
 
 const StudentProfile = () => {
   const { studentId } = useParams();
@@ -35,16 +36,24 @@ const StudentProfile = () => {
       const data = { id: snap.id, ...snap.data() };
       setStudent(data);
 
-      const [classSnap, feeYear] = await Promise.all([
+      const [classSnap, activeYear] = await Promise.all([
         data.classId ? getDoc(doc(db, "classes", data.classId)) : Promise.resolve(null),
-        getActiveStudentFeeYear(snap.id),
+        schoolId ? getActiveAcademicYear(schoolId).catch(() => null) : Promise.resolve(null),
       ]);
 
       if (classSnap?.exists()) {
         const c = classSnap.data();
         setClassLabel(`${c.grade}-${c.section}`);
       }
-      setFeeItems(feeYear || {});
+
+      // Reads the real Fees V2 profile (studentFeeProfiles), not the old
+      // studentFeeYears collection — a student enrolled before 2026-08-08
+      // via the old AddStudentDialog path won't have one of these; that's
+      // expected, not a bug in this read.
+      const profile = activeYear
+        ? await getProfileByStudentAndYear(snap.id, activeYear.id)
+        : null;
+      setFeeItems(profile || {});
     } catch (err) {
       console.error("Failed to fetch student:", err);
       setStudent(null);
@@ -171,6 +180,15 @@ const StudentProfile = () => {
         </CardContent>
       </Card>
 
+      {/* Attendance */}
+      {student.classId && (
+        <StudentAttendanceSummary
+          schoolId={schoolId}
+          classId={student.classId}
+          studentId={student.id}
+        />
+      )}
+
       {/* Fee Breakdown */}
       <FeeBreakdown feeProfile={feeItems} />
 
@@ -192,11 +210,12 @@ const Info = ({ label, value }) => (
 );
 
 const FeeBreakdown = ({ feeProfile }) => {
-  if (!feeProfile || !feeProfile.items?.length) return null;
+  if (!feeProfile || !feeProfile.feeLineItems?.length) return null;
 
-  const recurring = feeProfile.items.filter((i) => !i.isOneTime);
-  const oneTime   = feeProfile.items.filter((i) =>  i.isOneTime);
+  const recurring = feeProfile.feeLineItems.filter((i) => !i.isOneTime);
+  const oneTime   = feeProfile.feeLineItems.filter((i) =>  i.isOneTime);
   const cycleWord = feeProfile.schedule === "quarterly" ? "quarter" : "month";
+  const totalPerCycle = recurring.reduce((s, i) => s + (i.amount || 0), 0);
 
   return (
     <Card>
@@ -225,7 +244,7 @@ const FeeBreakdown = ({ feeProfile }) => {
           {recurring.length > 0 && (
             <div className="flex items-center justify-between px-4 py-2.5 text-sm bg-indigo-50">
               <span className="font-semibold text-indigo-700">Total / {cycleWord}</span>
-              <span className="font-bold text-indigo-700">₹{Number(feeProfile.totalPerCycle || 0).toLocaleString()}</span>
+              <span className="font-bold text-indigo-700">₹{totalPerCycle.toLocaleString()}</span>
             </div>
           )}
         </div>
